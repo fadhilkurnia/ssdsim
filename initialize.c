@@ -93,13 +93,14 @@ struct ssd_info *initiation(struct ssd_info *ssd)
 
       strcpy_s(ssd->statisticfilename2 ,16,"statistic2.dat");*/
 
+    /*
     strncpy(ssd->parameterfilename,"page.parameters",16);
     //strncpy(ssd->tracefilename,"example.ascii",25);
     printf("\ninput trace file name:");
     scanf("%s",ssd->tracefilename);
     strncpy(ssd->outputfilename,"ex.out",7);
     strncpy(ssd->statisticfilename,"statistic10.dat",16);
-    strncpy(ssd->statisticfilename2,"statistic2.dat",15);
+    strncpy(ssd->statisticfilename2,"statistic2.dat",15);*/
 
     //导入ssd的配置文件
     parameters=load_parameters(ssd->parameterfilename);

@@ -39,3 +39,13 @@ int64_t find_nearest_event(struct ssd_info *);
 void free_all_node(struct ssd_info *);
 struct ssd_info *make_aged(struct ssd_info *);
 struct ssd_info *no_buffer_distribute(struct ssd_info *);
+struct ssd_info *parse_filename_input(struct ssd_info *, int, char *[]);
+
+/********************************************
+* Function to display info and help
+* Added by Fadhil Imam (fadhilimamk@gmail.com) 
+* to print help and usage info | 29/06/2018
+*********************************************/
+void display_title();
+void display_help();
+void display_simulation_intro(struct ssd_info *);

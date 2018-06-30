@@ -1329,6 +1329,19 @@ Status gc_for_channel(struct ssd_info *ssd, unsigned int channel)
  *进入gc函数不一定需要进行gc操作，需要进行一定的判断，当处于硬阈值以下时，必须进行gc操作；当处于软阈值以下时，
  *需要判断，看这个channel上是否有子请求在等待(有写子请求等待就不行，gc的目标die处于busy状态也不行)，如果
  *有就不执行gc，跳出，否则可以执行一步操作
+ * =========================================================================================================
+ *Flag is used to mark the gc function is called when the ssd is all idle (1), or to determine the channel, 
+ *chip, die, plane is called (0) into the gc function, need to determine whether 
+ *it is uninterruptible gc Operation, if it is, it needs to completely erase a whole block of target blocks; 
+ *if it is interruptible, before the GC operation, it is necessary to judge whether the channel 
+ *has a sub-request waiting for operation, if not, start Step by step operation, 
+ *after finding the target block, execute a copyback operation at a time, jump out of the gc function, 
+ *wait for the time to advance, and then do the next copyback or erase operation into the gc function 
+ *does not necessarily need to perform gc operation, need to make certain judgment When it is below 
+ *the hard threshold, the gc operation must be performed; when it is below the soft threshold, 
+ *it needs to be judged to see if there are sub-requests waiting on this channel 
+ *(there is no waiting for the write sub-request, and the target die of gc is in the busy state. 
+ *No, if you do not execute gc, jump out, otherwise you can perform one step
  ************************************************************************************************************/
 unsigned int gc(struct ssd_info *ssd,unsigned int channel, unsigned int flag)
 {
@@ -1337,7 +1350,7 @@ unsigned int gc(struct ssd_info *ssd,unsigned int channel, unsigned int flag)
     unsigned int flag_priority=0;
     struct gc_operation *gc_node=NULL,*gc_p=NULL;
 
-    if (flag==1)                                                                       /*整个ssd都是IDEL的情况*/
+    if (flag==1)                                            /*整个ssd都是IDEL的情况 | The whole ssd is IDLE*/
     {
         for (i=0;i<ssd->parameter->channel_number;i++)
         {
@@ -1359,7 +1372,7 @@ unsigned int gc(struct ssd_info *ssd,unsigned int channel, unsigned int flag)
         return SUCCESS;
 
     } 
-    else                                                                               /*只需针对某个特定的channel，chip，die进行gc请求的操作(只需对目标die进行判定，看是不是idle）*/
+    else                                                  /*只需针对某个特定的channel，chip，die进行gc请求的操作(只需对目标die进行判定，看是不是idle） | Only need to perform gc request for a specific channel, chip, die (just judge the target die to see if it is idle)*/
     {
         if ((ssd->parameter->allocation_scheme==1)||((ssd->parameter->allocation_scheme==0)&&(ssd->parameter->dynamic_allocation==1)))
         {

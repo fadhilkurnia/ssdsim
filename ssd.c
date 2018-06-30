@@ -19,6 +19,7 @@ Hao Luo         2011/01/01        2.0           Change               luohao13568
 
 
 #include "ssd.h"
+// #define DEBUG 1
 
 /********************************************************************************************************************************
   1，main函数中initiatio()函数用来初始化ssd,；2，make_aged()函数使SSD成为aged，aged的ssd相当于使用过一段时间的ssd，里面有失效页，
@@ -26,8 +27,19 @@ Hao Luo         2011/01/01        2.0           Change               luohao13568
   的lpn<--->ppn映射关系事先建立好，写请求的lpn<--->ppn映射关系在写的时候再建立，预处理trace防止读请求是读不到数据；4，simulate()是
   核心处理函数，trace文件从读进来到处理完成都由这个函数来完成；5，statistic_output()函数将ssd结构中的信息输出到输出文件，输出的是
   统计数据和平均数据，输出文件较小，trace_output文件则很大很详细；6，free_all_node()函数释放整个main函数中申请的节点
- *********************************************************************************************************************************/
-int  main()
+ *********************************************************************************************************************************
+  1, main function initiation() function is used to initialize ssd,; 2, make_aged() function makes SSD become aged, 
+  aged ssd is equivalent to the use of ssd for some time, there are invalid pages, Non_aged ssd is a new ssd, no invalid page, 
+  the proportion of invalid pages can be set in the initialization parameters; 3, pre_process_page() function scans 
+  the read request in advance, read request Lpn<--->ppn mapping relationship established in advance, 
+  the write request lpn<--->ppn mapping relationship to be established at the time of writing, 
+  preprocessing trace to prevent read requests can not read data; 4, simulate() Yes
+  The core processing function, trace file from reading to processing is completed by this function; 
+  5, statistic_output() function will output the information in the ssd structure to the output file, the output is
+  Statistics and average data, the output file is small, trace_output file is very large and detailed; 
+  6, free_all_node() function to release the entire main function in the application node
+*********************************************************************************************************************************/
+int  main(int argc, char *argv[])
 {
     unsigned  int i,j,k;
     struct ssd_info *ssd;
@@ -36,10 +48,18 @@ int  main()
     printf("enter main\n"); 
 #endif
 
+    display_title();
+    if (argc < 2) {
+        display_help();
+        printf ("\033[31m  ERROR\033[0m: require trace file to start simulation\n");
+        return 1;
+    }
+
     ssd=(struct ssd_info*)malloc(sizeof(struct ssd_info));
     alloc_assert(ssd,"ssd");
     memset(ssd,0, sizeof(struct ssd_info));
 
+    ssd=parse_filename_input(ssd, argc, argv);
     ssd=initiation(ssd);
     make_aged(ssd);
     pre_process_page(ssd);
@@ -104,6 +124,14 @@ struct ssd_info *simulate(struct ssd_info *ssd)
 
         flag=get_requests(ssd);
 
+        printf("%ld : ", ssd->current_time);
+        if (ssd->request_tail != NULL) {
+            struct request* r = ssd->request_tail;
+            printf("%d %d %d %ld %ld\n", r->lsn, r->size, r->operation, r->begin_time, r->response_time);
+        } else {
+            printf("request is null\n");
+        }
+
         if(flag == 1)
         {   
             //printf("once\n");
@@ -156,17 +184,24 @@ int get_requests(struct ssd_info *ssd)
     printf("enter get_requests,  current time:%lld\n",ssd->current_time);
 #endif
 
-    if(feof(ssd->tracefile))
-        return 0; 
+    // If not EOF, try to add new request
+    if(!feof(ssd->tracefile)) {
+        filepoint = ftell(ssd->tracefile);
+        fgets(buffer, 200, ssd->tracefile);
+        sscanf(buffer,"%lld %d %d %d %d",&time_t,&device,&lsn,&size,&ope);
+    
+    // Else continue to process queue until empty
+    } else {
+        nearest_event_time=find_nearest_event(ssd);
+        ssd->current_time=nearest_event_time;
+        return 0;
+    }
 
-    filepoint = ftell(ssd->tracefile);	
-    fgets(buffer, 200, ssd->tracefile); 
-    sscanf(buffer,"%lld %d %d %d %d",&time_t,&device,&lsn,&size,&ope);
-
-    if ((device<0)&&(lsn<0)&&(size<0)&&(ope<0))
-    {
+    if ((device<0)&&(lsn<0)&&(size<0)&&(ope<0)) {
+        printf("Error! wrong io request from trace file\n");
         return 100;
     }
+
     if (lsn<ssd->min_lsn) 
         ssd->min_lsn=lsn;
     if (lsn>ssd->max_lsn)
@@ -184,14 +219,10 @@ int get_requests(struct ssd_info *ssd)
     if (nearest_event_time==MAX_INT64)
     {
         ssd->current_time=time_t;           
-
-        //if (ssd->request_queue_length>ssd->parameter->queue_length)    //如果请求队列的长度超过了配置文件中所设置的长度                     
-        //{
-        //printf("error in get request , the queue length is too long\n");
-        //}
     }
     else
-    {   
+    {
+        printf("nearest event time: %ld vs %ld | %d vs %d\n", nearest_event_time, time_t, ssd->request_queue_length, ssd->parameter->queue_length);
         if(nearest_event_time<time_t)
         {
             /*******************************************************************************
@@ -810,8 +841,10 @@ void statistic_output(struct ssd_info *ssd)
     fprintf(ssd->outputfile,"write request count: %13d\n",ssd->write_request_count);
     fprintf(ssd->outputfile,"read request average size: %13f\n",ssd->ave_read_size);
     fprintf(ssd->outputfile,"write request average size: %13f\n",ssd->ave_write_size);
-    fprintf(ssd->outputfile,"read request average response time: %lld\n",ssd->read_avg/ssd->read_request_count);
-    fprintf(ssd->outputfile,"write request average response time: %lld\n",ssd->write_avg/ssd->write_request_count);
+    if (ssd->read_request_count != 0)
+        fprintf(ssd->outputfile,"read request average response time: %lld\n",ssd->read_avg/ssd->read_request_count);
+    if (ssd->write_request_count != 0)
+        fprintf(ssd->outputfile,"write request average response time: %lld\n",ssd->write_avg/ssd->write_request_count);
     fprintf(ssd->outputfile,"buffer read hits: %13d\n",ssd->dram->buffer->read_hit);
     fprintf(ssd->outputfile,"buffer read miss: %13d\n",ssd->dram->buffer->read_miss_hit);
     fprintf(ssd->outputfile,"buffer write hits: %13d\n",ssd->dram->buffer->write_hit);
@@ -850,8 +883,10 @@ void statistic_output(struct ssd_info *ssd)
     fprintf(ssd->statisticfile,"write request count: %13d\n",ssd->write_request_count);
     fprintf(ssd->statisticfile,"read request average size: %13f\n",ssd->ave_read_size);
     fprintf(ssd->statisticfile,"write request average size: %13f\n",ssd->ave_write_size);
-    fprintf(ssd->statisticfile,"read request average response time: %lld\n",ssd->read_avg/ssd->read_request_count);
-    fprintf(ssd->statisticfile,"write request average response time: %lld\n",ssd->write_avg/ssd->write_request_count);
+    if(ssd->read_request_count != 0)
+        fprintf(ssd->statisticfile,"read request average response time: %lld\n",ssd->read_avg/ssd->read_request_count);
+    if(ssd->write_request_count != 0)
+        fprintf(ssd->statisticfile,"write request average response time: %lld\n",ssd->write_avg/ssd->write_request_count);
     fprintf(ssd->statisticfile,"buffer read hits: %13d\n",ssd->dram->buffer->read_hit);
     fprintf(ssd->statisticfile,"buffer read miss: %13d\n",ssd->dram->buffer->read_miss_hit);
     fprintf(ssd->statisticfile,"buffer write hits: %13d\n",ssd->dram->buffer->write_hit);
@@ -1134,3 +1169,60 @@ struct ssd_info *no_buffer_distribute(struct ssd_info *ssd)
 }
 
 
+void display_title() 
+{
+    printf("\n");
+    printf("               _     _             \n");
+    printf("              | |   (_)            \n");
+    printf("   ___ ___  __| |___ _ _ __ ___    \n");
+    printf("  / __/ __|/ _` / __| | '_ ` _ \\   \n");
+    printf("  \\__ \\__ \\ (_| \\__ \\ | | | | | |  \n");
+    printf("  |___/___/\\__,_|___/_|_| |_| |_|  \n");
+    printf("                                   \n");
+    printf("  SSD internal simulation tool,\n  created by Yang Hu, v.2.0 \n\n");
+}
+
+void display_help() 
+{
+    printf("  usage: ssd trace_file [options]\n");
+    printf("    options:\n");
+    printf("     -p=<filename> \t parameter filename (default: page.parameter)\n");
+    printf("     -o=<filename> \t output filename (default: ex.out)\n");
+    printf("     -s=<filename> \t statistics output filename (default: statistic10.dat)\n\n");
+}
+
+struct ssd_info *parse_filename_input(struct ssd_info *ssd, int argc, char *argv[])
+{
+    int i;
+    char *opt;
+
+    // Assign default value
+    strncpy(ssd->parameterfilename,"page.parameters",16);
+    strncpy(ssd->outputfilename,"ex.out",7);
+    strncpy(ssd->statisticfilename,"statistic10.dat",16);
+    strncpy(ssd->statisticfilename2,"statistic2.dat",15);
+
+    // Read filename from program option parameter
+    for(i = 1; i < argc; i++) {
+        if (i == 1) {
+            strcpy(ssd->tracefilename, argv[i]);
+            continue;
+        }
+        strncpy(opt, argv[i], 3);
+        if (strcmp(opt, "-p=") == 0) {
+            strcpy(ssd->parameterfilename, argv[i]+3);
+            printf("ssd->parameterfilename %s \n", ssd->parameterfilename);
+        } else if (strcmp(opt, "-o=") == 0) {
+            strcpy(ssd->outputfilename, argv[i]+3);
+        } else if (strcmp(opt, "-s=") == 0) {
+            strcpy(ssd->statisticfilename, argv[i]+3);
+        }
+    }
+
+    return ssd;
+}
+
+void display_simulation_intro(struct ssd_info *ssd)
+{
+    printf("");
+}

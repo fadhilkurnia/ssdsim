@@ -1,3 +1,6 @@
+parameter file: page.parameters
+trace file: short.ascii
+-----------------------parameter file----------------------
 #parameter file
 dram capacity = 131074;         # the unit is B
 chip number[0] = 2;
@@ -86,3 +89,46 @@ greed CB command=0;                 # 1 for using copyback command greedily, 0 f
 greed MPW command=1;                # 1 for using multi-plane write greedily, 0 for not
 aged=0;                             # 1 for making SSD aged, 0 for keeping SSD non-aged
 aged ratio=0.7;                     # If we need to make SSD aged, set the aged ratio in advance
+-----------------------simulation output----------------------
+the 0 channel, 0 chip, 0 die, 2048 plane has :             0 erase operations
+the 0 channel, 0 chip, 1 die, 2048 plane has :             0 erase operations
+the 0 channel, 1 chip, 0 die, 2048 plane has :             0 erase operations
+the 0 channel, 1 chip, 1 die, 2048 plane has :             0 erase operations
+the 1 channel, 0 chip, 0 die, 2048 plane has :             0 erase operations
+the 1 channel, 0 chip, 1 die, 2048 plane has :             0 erase operations
+the 1 channel, 1 chip, 0 die, 2048 plane has :             0 erase operations
+the 1 channel, 1 chip, 1 die, 2048 plane has :             0 erase operations
+
+
+---------------------------statistic data---------------------------
+min lsn:         55590
+max lsn:        303581
+read count:             2
+program count:             2                        include the flash write count leaded by read requests
+the read operation leaded by un-covered update count:             0
+erase count:             0
+direct erase count:             0
+copy back count:             0
+multi-plane program count:             0
+multi-plane read count:             0
+interleave count:             0
+interleave read count:             0
+interleave two plane and one program count:             0
+interleave two plane count:             0
+gc copy back count:             0
+write flash count:             2
+waste page count:             0
+interleave erase count:             0
+multiple plane erase count:             0
+interleave multiple plane erase count:             0
+read request count:             1
+write request count:             4
+read request average size:      6.000000
+write request average size:      6.500000
+read request average response time: 71375
+write request average response time: 1000
+buffer read hits:             0
+buffer read miss:             0
+buffer write hits:             0
+buffer write miss:             2
+erase:             0

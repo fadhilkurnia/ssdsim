@@ -1,3 +1,6 @@
+parameter file: page.parameters
+trace file: short.ascii
+-----------------------parameter file----------------------
 #parameter file
 dram capacity = 131074;         # the unit is B
 chip number[0] = 2;
@@ -86,3 +89,61 @@ greed CB command=0;                 # 1 for using copyback command greedily, 0 f
 greed MPW command=1;                # 1 for using multi-plane write greedily, 0 for not
 aged=0;                             # 1 for making SSD aged, 0 for keeping SSD non-aged
 aged ratio=0.7;                     # If we need to make SSD aged, set the aged ratio in advance
+-----------------------simulation output----------------------
+chip:0,die:0,plane:0 have free page: 131071
+chip:0,die:0,plane:1 have free page: 131072
+chip:0,die:1,plane:0 have free page: 131072
+chip:0,die:1,plane:1 have free page: 131072
+chip:1,die:0,plane:0 have free page: 131071
+chip:1,die:0,plane:1 have free page: 131072
+chip:1,die:1,plane:0 have free page: 131072
+chip:1,die:1,plane:1 have free page: 131072
+									OUTPUT
+****************** TRACE INFO ******************
+      arrive           lsn     size ope     begin time    response time    process time
+               0     303567      7  0                0             1000       1000
+               0      55590      6  0                0             1000       1000
+        26214000     303574      7  0         26214000         26215000       1000
+        26214000     240840      6  0         26214000         26215000       1000
+        78643005      55596      6  1         78643005         78714380      71375
+the 0 channel, 0 chip, 0 die, 2048 plane has :             0 erase operations
+the 0 channel, 0 chip, 1 die, 2048 plane has :             0 erase operations
+the 0 channel, 1 chip, 0 die, 2048 plane has :             0 erase operations
+the 0 channel, 1 chip, 1 die, 2048 plane has :             0 erase operations
+the 1 channel, 0 chip, 0 die, 2048 plane has :             0 erase operations
+the 1 channel, 0 chip, 1 die, 2048 plane has :             0 erase operations
+the 1 channel, 1 chip, 0 die, 2048 plane has :             0 erase operations
+the 1 channel, 1 chip, 1 die, 2048 plane has :             0 erase operations
+
+
+---------------------------statistic data---------------------------
+min lsn:         55590
+max lsn:        303581
+read count:             2
+program count:             2                        include the flash write count leaded by read requests
+the read operation leaded by un-covered update count:             0
+erase count:             0
+direct erase count:             0
+copy back count:             0
+multi-plane program count:             0
+multi-plane read count:             0
+interleave write count:             0
+interleave read count:             0
+interleave two plane and one program count:             0
+interleave two plane count:             0
+gc copy back count:             0
+write flash count:             2
+interleave erase count:             0
+multiple plane erase count:             0
+interleave multiple plane erase count:             0
+read request count:             1
+write request count:             4
+read request average size:      6.000000
+write request average size:      6.500000
+read request average response time: 71375
+write request average response time: 1000
+buffer read hits:             0
+buffer read miss:             0
+buffer write hits:             0
+buffer write miss:             2
+erase:             0

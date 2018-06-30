@@ -1543,7 +1543,7 @@ struct ssd_info *process(struct ssd_info *ssd)
     unsigned int i,chan,random_num;     
     unsigned int flag=0,new_write=0,chg_cur_time_flag=1,flag2=0,flag_gc=0;       
     int64_t time, channel_time=MAX_INT64;
-    struct sub_request *sub;          
+    struct sub_request *sub;
 
 #ifdef DEBUG
     printf("enter process,  current time:%lld\n",ssd->current_time);
@@ -1552,6 +1552,9 @@ struct ssd_info *process(struct ssd_info *ssd)
     /*********************************************************
      *判断是否有读写子请求，如果有那么flag令为0，没有flag就为1
      *当flag为1时，若ssd中有gc操作这时就可以执行gc操作
+     *Iterasi setiap channel, periksa apakah ada 
+     *subrequest write atau read dalam channel queue 
+     *(subs_r_head dan subs_w_head)
      **********************************************************/
     for(i=0;i<ssd->parameter->channel_number;i++)
     {          
@@ -1565,12 +1568,14 @@ struct ssd_info *process(struct ssd_info *ssd)
             break;
         }
     }
+
+    // do gc on channel 0 if ssd is idle (flag==1) and gc_request>0
     if(flag==1)
     {
         ssd->flag=1;                                                                
-        if (ssd->gc_request>0)                                                            /*SSD中有gc操作的请求*/
+        if (ssd->gc_request>0)                                                            /*SSD中有gc操作的请求 | Request for gc operation in SSD*/
         {
-            gc(ssd,0,1);                                                                  /*这个gc要求所有channel都必须遍历到*/
+            gc(ssd,0,1);                                                                  /*这个gc要求所有channel都必须遍历到 | This gc requires all channels to be traversed to*/
         }
         return ssd;
     }
@@ -1580,13 +1585,16 @@ struct ssd_info *process(struct ssd_info *ssd)
     }
 
     time = ssd->current_time;
-    services_2_r_cmd_trans_and_complete(ssd);                                            /*处理当前状态是SR_R_C_A_TRANSFER或者当前状态是SR_COMPLETE，或者下一状态是SR_COMPLETE并且下一状态预计时间小于当前状态时间*/
+    services_2_r_cmd_trans_and_complete(ssd);                                            /*处理当前状态是SR_R_C_A_TRANSFER或者当前状态是SR_COMPLETE，或者下一状态是SR_COMPLETE并且下一状态预计时间小于当前状态时间 | Processing the current state is SR_R_C_A_TRANSFER or the current state is SR_COMPLETE, or the next state is SR_COMPLETE and the expected time of the next state is less than the current state time*/
 
-    random_num=ssd->program_count%ssd->parameter->channel_number;                        /*产生一个随机数，保证每次从不同的channel开始查询*/
+    random_num=ssd->program_count%ssd->parameter->channel_number;                        /*产生一个随机数，保证每次从不同的channel开始查询 | Generate a random number to ensure that each query starts from a different channel*/
 
     /*****************************************
      *循环处理所有channel上的读写子请求
      *发读请求命令，传读写数据，都需要占用总线，
+     *========================================
+     *Loop through the read and write subrequests on all channels
+     *Sending a request command, transferring data to and from reading, all need to occupy the bus.
      ******************************************/
     for(chan=0;chan<ssd->parameter->channel_number;chan++)	     
     {
@@ -1595,13 +1603,13 @@ struct ssd_info *process(struct ssd_info *ssd)
         flag_gc=0;                                                                       /*每次进入channel时，将gc的标志位置为0，默认认为没有进行gc操作*/
         if((ssd->channel_head[i].current_state==CHANNEL_IDLE)||(ssd->channel_head[i].next_state==CHANNEL_IDLE&&ssd->channel_head[i].next_state_predict_time<=ssd->current_time))		
         {   
-            if (ssd->gc_request>0)                                                       /*有gc操作，需要进行一定的判断*/
+            if (ssd->gc_request>0)                                                       /*有gc操作，需要进行一定的判断 | Have gc operation, need to make certain judgment*/
             {
                 if (ssd->channel_head[i].gc_command!=NULL)
                 {
-                    flag_gc=gc(ssd,i,0);                                                 /*gc函数返回一个值，表示是否执行了gc操作，如果执行了gc操作，这个channel在这个时刻不能服务其他的请求*/
+                    flag_gc=gc(ssd,i,0);                                                 /*gc函数返回一个值，表示是否执行了gc操作，如果执行了gc操作，这个channel在这个时刻不能服务其他的请求 | The gc function returns a value indicating whether the gc operation has been executed. If the gc operation is executed, the channel cannot serve other requests at this time.*/
                 }
-                if (flag_gc==1)                                                          /*执行过gc操作，需要跳出此次循环*/
+                if (flag_gc==SUCCESS)                                                    /*执行过gc操作，需要跳出此次循环*/
                 {
                     continue;
                 }
