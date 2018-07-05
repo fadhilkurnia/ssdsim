@@ -584,6 +584,7 @@ Status write_page(struct ssd_info *ssd,unsigned int channel,unsigned int chip,un
 
 /**********************************************
  *这个函数的功能是根据lpn，size，state创建子请求
+ *The function of this function is to create sub-requests based on lpn, size, state.
  **********************************************/
 struct sub_request * creat_sub_request(struct ssd_info * ssd,unsigned int lpn,int size,unsigned int state,struct request * req,unsigned int operation)
 {
@@ -614,9 +615,11 @@ struct sub_request * creat_sub_request(struct ssd_info * ssd,unsigned int lpn,in
     /*************************************************************************************
      *在读操作的情况下，有一点非常重要就是要预先判断读子请求队列中是否有与这个子请求相同的，
      *有的话，新子请求就不必再执行了，将新的子请求直接赋为完成
+     *In the case of a read operation, it is very important to pre-determine whether there is any identical to the sub-request in the read sub-request queue.
+     *If so, the new subrequest will not have to be executed, and the new subrequest will be directly assigned to completion.
      **************************************************************************************/
     if (operation == READ)
-    {	
+    {
         loc = find_location(ssd,ssd->dram->map->map_entry[lpn].pn);
         sub->location=loc;
         sub->begin_time = ssd->current_time;
@@ -668,7 +671,7 @@ struct sub_request * creat_sub_request(struct ssd_info * ssd,unsigned int lpn,in
      *写请求的情况下，就需要利用到函数allocate_location(ssd ,sub)来处理静态分配和动态分配了
      **************************************************************************************/
     else if(operation == WRITE)
-    {                                
+    {
         sub->ppn=0;
         sub->operation = WRITE;
         sub->location=(struct local *)malloc(sizeof(struct local));
@@ -875,6 +878,10 @@ struct sub_request * find_write_sub_request(struct ssd_info * ssd, unsigned int 
  *专门为读子请求服务的函数
  *1，只有当读子请求的当前状态是SR_R_C_A_TRANSFER
  *2，读子请求的当前状态是SR_COMPLETE或者下一状态是SR_COMPLETE并且下一状态到达的时间比当前时间小
+ *============================================================================================
+ *a function specifically for reading sub-requests
+ *1, only when the current state of the read subrequest is SR_R_C_A_TRANSFER
+ *2. The current state of the read subrequest is SR_COMPLETE or the next state is SR_COMPLETE and the next state arrives less than the current time.
  **********************************************************************************************/
 Status services_2_r_cmd_trans_and_complete(struct ssd_info * ssd)
 {
@@ -894,9 +901,10 @@ Status services_2_r_cmd_trans_and_complete(struct ssd_info * ssd)
 
                 }
             }
-            else if((sub->current_state==SR_COMPLETE)||((sub->next_state==SR_COMPLETE)&&(sub->next_state_predict_time<=ssd->current_time)))					
-            {			
-                if(sub!=ssd->channel_head[i].subs_r_head)                             /*if the request is completed, we delete it from read queue */							
+            else if((sub->current_state==SR_COMPLETE)||((sub->next_state==SR_COMPLETE)&&(sub->next_state_predict_time<=ssd->current_time)))
+            {	
+                printf("yap this state\n");
+                if(sub!=ssd->channel_head[i].subs_r_head)                             /*if the request is completed, we delete it from read queue */
                 {		
                     p->next_node=sub->next_node;						
                 }			
@@ -1042,6 +1050,7 @@ Status services_2_r_data_trans(struct ssd_info * ssd,unsigned int channel,unsign
 
 /******************************************************
  *这个函数也是只服务读子请求，并且处于等待状态的读子请求
+ *This function is also a read subrequest that only serves to read subrequests and is in a wait state.
  *******************************************************/
 int services_2_r_wait(struct ssd_info * ssd,unsigned int channel,unsigned int * channel_busy_flag, unsigned int * change_current_time_flag)
 {
@@ -1073,8 +1082,7 @@ int services_2_r_wait(struct ssd_info * ssd,unsigned int channel,unsigned int * 
             while(sub!=NULL)                                                            /*if there are read requests in queue, send one of them to target die*/			
             {		
                 if(sub->current_state==SR_WAIT)									
-                {	                                                                    /*注意下个这个判断条件与services_2_r_data_trans中判断条件的不同
-                */
+                {	                                                                    /*注意下个这个判断条件与services_2_r_data_trans中判断条件的不同*/
                     if((ssd->channel_head[sub->location->channel].chip_head[sub->location->chip].current_state==CHIP_IDLE)||((ssd->channel_head[sub->location->channel].chip_head[sub->location->chip].next_state==CHIP_IDLE)&&
                                 (ssd->channel_head[sub->location->channel].chip_head[sub->location->chip].next_state_predict_time<=ssd->current_time)))												
                     {	
@@ -1101,7 +1109,6 @@ int services_2_r_wait(struct ssd_info * ssd,unsigned int channel,unsigned int * 
 
         if (sub_interleave_two!=NULL)                                                  /*可以执行interleave read 操作*/
         {
-
             go_one_step(ssd, sub_interleave_one,sub_interleave_two, SR_R_C_A_TRANSFER,INTERLEAVE);
 
             *change_current_time_flag=0;
@@ -1116,7 +1123,6 @@ int services_2_r_wait(struct ssd_info * ssd,unsigned int channel,unsigned int * 
                     if((ssd->channel_head[sub->location->channel].chip_head[sub->location->chip].current_state==CHIP_IDLE)||((ssd->channel_head[sub->location->channel].chip_head[sub->location->chip].next_state==CHIP_IDLE)&&
                                 (ssd->channel_head[sub->location->channel].chip_head[sub->location->chip].next_state_predict_time<=ssd->current_time)))												
                     {	
-
                         go_one_step(ssd, sub,NULL, SR_R_C_A_TRANSFER,NORMAL);
 
                         *change_current_time_flag=0;
@@ -1527,8 +1533,9 @@ Status services_2_write(struct ssd_info * ssd,unsigned int channel,unsigned int 
 
 /********************************************************
  *这个函数的主要功能是主控读子请求和写子请求的状态变化处理
+ *======================================================
+ *The main function of this function is the state change processing of the master read subrequest and the write subrequest.
  *********************************************************/
-
 struct ssd_info *process(struct ssd_info *ssd)   
 {
 
@@ -1616,18 +1623,19 @@ struct ssd_info *process(struct ssd_info *ssd)
             }
 
             sub=ssd->channel_head[i].subs_r_head;                                        /*先处理读请求*/
+
+            // TODO: Fadhil, why this function change the flag into 1
             services_2_r_wait(ssd,i,&flag,&chg_cur_time_flag);                           /*处理处于等待状态的读子请求*/
 
             if((flag==0)&&(ssd->channel_head[i].subs_r_head!=NULL))                      /*if there are no new read request and data is ready in some dies, send these data to controller and response this request*/		
-            {		     
+            {
                 services_2_r_data_trans(ssd,i,&flag,&chg_cur_time_flag);                    
 
             }
             if(flag==0)                                                                  /*if there are no read request to take channel, we can serve write requests*/ 		
             {	
                 services_2_write(ssd,i,&flag,&chg_cur_time_flag);
-
-            }	
+            }
         }	
     }
 
@@ -3457,6 +3465,8 @@ int find_interleave_twoplane_sub_request(struct ssd_info * ssd, unsigned int cha
 /**************************************************************************
  *这个函数非常重要，读子请求的状态转变，以及时间的计算都通过这个函数来处理
  *还有写子请求的执行普通命令时的状态，以及时间的计算也是通过这个函数来处理的
+ *This function is very important, the state transition of the read subrequest, and the calculation of the time are handled by this function.
+ *There is also the state when the ordinary command is executed to write the sub-request, and the calculation of the time is also handled by this function.
  ****************************************************************************/
 Status go_one_step(struct ssd_info * ssd, struct sub_request * sub1,struct sub_request *sub2, unsigned int aim_state,unsigned int command)
 {
@@ -3509,7 +3519,7 @@ Status go_one_step(struct ssd_info * ssd, struct sub_request * sub1,struct sub_r
                     sub->current_time=ssd->current_time;									
                     sub->current_state=SR_R_C_A_TRANSFER;									
                     sub->next_state=SR_R_READ;									
-                    sub->next_state_predict_time=ssd->current_time+7*ssd->parameter->time_characteristics.tWC;									
+                    sub->next_state_predict_time=ssd->current_time+7*ssd->parameter->time_characteristics.tWC;
                     sub->begin_time=ssd->current_time;
 
                     ssd->channel_head[location->channel].chip_head[location->chip].die_head[location->die].plane_head[location->plane].add_reg_ppn=sub->ppn;

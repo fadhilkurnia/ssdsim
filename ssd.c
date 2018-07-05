@@ -16,8 +16,6 @@ Chao Ren        2011/07/01        2.0           Change               529517386@q
 Hao Luo         2011/01/01        2.0           Change               luohao135680@gmail.com
  *****************************************************************************************************************************/
 
-
-
 #include "ssd.h"
 // #define DEBUG 1
 
@@ -59,7 +57,7 @@ int  main(int argc, char *argv[])
     alloc_assert(ssd,"ssd");
     memset(ssd,0, sizeof(struct ssd_info));
 
-    ssd=parse_filename_input(ssd, argc, argv);
+    ssd=parse_args(ssd, argc, argv);
     ssd=initiation(ssd);
     make_aged(ssd);
     pre_process_page(ssd);
@@ -122,16 +120,10 @@ struct ssd_info *simulate(struct ssd_info *ssd)
     while(flag!=100)      
     {
 
+        // Interface layer
         flag=get_requests(ssd);
 
-        printf("%ld : ", ssd->current_time);
-        if (ssd->request_tail != NULL) {
-            struct request* r = ssd->request_tail;
-            printf("%d %d %d %ld %ld\n", r->lsn, r->size, r->operation, r->begin_time, r->response_time);
-        } else {
-            printf("request is null\n");
-        }
-
+        // Buffer layer
         if(flag == 1)
         {   
             //printf("once\n");
@@ -146,6 +138,8 @@ struct ssd_info *simulate(struct ssd_info *ssd)
             }		
         }
 
+        printf("a\n");
+        // FTL+FCL+Flash layer
         process(ssd);    
         trace_output(ssd);
         if(flag == 0 && ssd->request_queue == NULL)
@@ -216,13 +210,15 @@ int get_requests(struct ssd_info *ssd)
     lsn = lsn%large_lsn;
 
     nearest_event_time=find_nearest_event(ssd);
+
+    printf("%ld: nearest event time is %ld\n", ssd->current_time, nearest_event_time);
+
     if (nearest_event_time==MAX_INT64)
     {
         ssd->current_time=time_t;           
     }
     else
     {
-        printf("nearest event time: %ld vs %ld | %d vs %d\n", nearest_event_time, time_t, ssd->request_queue_length, ssd->parameter->queue_length);
         if(nearest_event_time<time_t)
         {
             /*******************************************************************************
@@ -325,6 +321,7 @@ int get_requests(struct ssd_info *ssd)
  *		   sub_request命中buffer则在buffer里面写就行了，并且将该sub_page提到buffer链头(LRU)，若没有命中且buffer满，则先将buffer链尾的sub_request
  *		   写入flash(这会产生一个sub_request写请求，挂到这个请求request的sub_request链上，同时视动态分配还是静态分配挂到channel或ssd的
  *		   sub_request链上),在将要写的sub_page写入buffer链头
+ * Read operation: If you hit the buffer, read from the buffer, do not occupy the channel I / O bus, do not hit the buffer, read from the flash, occupy the channel I / O bus, but do not enter the buffer
  ***********************************************************************************************************************************************/
 struct ssd_info *buffer_management(struct ssd_info *ssd)
 {   
@@ -444,6 +441,7 @@ struct ssd_info *buffer_management(struct ssd_info *ssd)
     {
         if(new_request->need_distr_flag[j] != 0)
         {
+            printf("yap\n");
             complete_flag = 0;
         }
     }
@@ -563,8 +561,11 @@ struct ssd_info *distribute(struct ssd_info *ssd)
 /**********************************************************************
  *trace_output()函数是在每一条请求的所有子请求经过process()函数处理完后，
  *打印输出相关的运行结果到outputfile文件中，这里的结果主要是运行的时间
+ *====================================================================
+ *The trace_output() function is executed after all sub-requests of each request have been processed by the process() function.
+ *Print out the relevant running results to the outputfile, the result here is mainly the running time
  **********************************************************************/
-void trace_output(struct ssd_info* ssd){
+int64_t trace_output(struct ssd_info* ssd){
     int flag = 1;	
     int64_t start_time, end_time;
     struct request *req, *pre_node;
@@ -1191,10 +1192,34 @@ void display_help()
     printf("     -s=<filename> \t statistics output filename (default: statistic10.dat)\n\n");
 }
 
-struct ssd_info *parse_filename_input(struct ssd_info *ssd, int argc, char *argv[])
+void display_simulation_intro(struct ssd_info *ssd)
+{
+    printf("");
+}
+
+void display_freepage(struct ssd_info *ssd)
+{
+    int i, j, k;
+    for (i=0;i<ssd->parameter->channel_number;i++)
+        for (j=0;j<ssd->parameter->die_chip;j++)
+            for (k=0;k<ssd->parameter->plane_die;k++)
+                printf("%d,0,%d,%d:  %5d\n",i,j,k,ssd->channel_head[i].chip_head[0].die_head[j].plane_head[k].free_page);
+}
+
+/***********************************************************************
+ * Read trace file, output file, and statistics file from args.
+ * Assign that file to ssd_info global struct.
+ ***********************************************************************/
+struct ssd_info *parse_args(struct ssd_info *ssd, int argc, char *argv[])
 {
     int i;
     char *opt;
+
+    if (argc < 2) {
+        display_help();
+        printf ("\033[31m  ERROR\033[0m: require trace file to start simulation\n");
+        exit(1);
+    }
 
     // Assign default value
     strncpy(ssd->parameterfilename,"page.parameters",16);
@@ -1220,9 +1245,4 @@ struct ssd_info *parse_filename_input(struct ssd_info *ssd, int argc, char *argv
     }
 
     return ssd;
-}
-
-void display_simulation_intro(struct ssd_info *ssd)
-{
-    printf("");
 }

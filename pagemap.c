@@ -148,6 +148,8 @@ unsigned int find_ppn(struct ssd_info * ssd,unsigned int channel,unsigned int ch
 
 /********************************
  *函数功能是获得一个读子请求的状态
+ *==============================
+ *The function function is to get the status of a read sub request
  *********************************/
 int set_entry_state(struct ssd_info *ssd,unsigned int lsn,unsigned int size)
 {
@@ -187,8 +189,10 @@ struct ssd_info *pre_process_page(struct ssd_info *ssd)
     }
 
     full_page=~(0xffffffff<<(ssd->parameter->subpage_page));
-    /*计算出这个ssd的最大逻辑扇区号*/
+    printf("full page %d %d \n",full_page, ssd->parameter->subpage_page);
+    /*计算出这个ssd的最大逻辑扇区号 | Calculate the maximum logical sector number of this ssd*/
     largest_lsn=(unsigned int )((ssd->parameter->chip_num*ssd->parameter->die_chip*ssd->parameter->plane_die*ssd->parameter->block_plane*ssd->parameter->page_block*ssd->parameter->subpage_page)*(1-ssd->parameter->overprovide));
+    printf("largest lsn : %d\n", largest_lsn);
 
     while(fgets(buffer_request,200,ssd->tracefile))
     {
@@ -196,15 +200,16 @@ struct ssd_info *pre_process_page(struct ssd_info *ssd)
         fl++;
         trace_assert(time,device,lsn,size,ope);                         /*断言，当读到的time，device，lsn，size，ope不合法时就会处理*/
 
-        add_size=0;                                                     /*add_size是这个请求已经预处理的大小*/
+        add_size=0;                                                     /*add_size是这个请求已经预处理的大小 | add_size is the size that this request has been preprocessed*/
 
-        if(ope==1)                                                      /*这里只是读请求的预处理，需要提前将相应位置的信息进行相应修改*/
+        // Only pre process page that will be read
+        if(ope==1)                                                      /*这里只是读请求的预处理，需要提前将相应位置的信息进行相应修改 | This is just a preprocessing of the read request, and the information in the corresponding position needs to be modified in advance.*/
         {
             while(add_size<size)
             {				
-                lsn=lsn%largest_lsn;                                    /*防止获得的lsn比最大的lsn还大*/		
+                lsn=lsn%largest_lsn;                                    /*防止获得的lsn比最大的lsn还大 | Prevent lsn from getting bigger than the largest lsn*/		
                 sub_size=ssd->parameter->subpage_page-(lsn%ssd->parameter->subpage_page);		
-                if(add_size+sub_size>=size)                             /*只有当一个请求的大小小于一个page的大小时或者是处理一个请求的最后一个page时会出现这种情况*/
+                if(add_size+sub_size>=size)                             /*只有当一个请求的大小小于一个page的大小时或者是处理一个请求的最后一个page时会出现这种情况 | This happens only when the size of a request is less than the size of a page or when the last page of a request is processed.*/
                 {		
                     sub_size=size-add_size;		
                     add_size+=sub_size;		
@@ -220,13 +225,22 @@ struct ssd_info *pre_process_page(struct ssd_info *ssd)
                  *判断这个dram中映射表map中在lpn位置的状态
                  *A，这个状态==0，表示以前没有写过，现在需要直接将ub_size大小的子页写进去写进去
                  *B，这个状态>0，表示，以前有写过，这需要进一步比较状态，因为新写的状态可以与以前的状态有重叠的扇区的地方
+                 *======================================================================================================
+                 *Calculate the logical page number lpn using the logical sector number lsn
+                 *Determine the state of the lpn position in the map table in this dram
+                 *A, this state == 0, indicating that it has not been written before, now you need to directly write the sub-size sub-page into it and write it in.
+                 *B, this state > 0, indicating that there has been a previous write, this requires further comparison of the state, because the newly written state can have overlapping sectors with the previous state.
                  ********************************************************************************************************/
                 lpn=lsn/ssd->parameter->subpage_page;
+                printf("pre process lsn:%d lpn:%d  state:%d\n", lsn, lpn, ssd->dram->map->map_entry[lpn].state);
                 if(ssd->dram->map->map_entry[lpn].state==0)                 /*状态为0的情况*/
                 {
                     /**************************************************************
                      *获得利用get_ppn_for_pre_process函数获得ppn，再得到location
                      *修改ssd的相关参数，dram的映射表map，以及location下的page的状态
+                     *=============================================================
+                     *Get the get_ppn_for_pre_process function to get ppn, then get the location
+                     *Modify the relevant parameters of ssd, the mapping table of dram, and the status of the page under location
                      ***************************************************************/
                     ppn=get_ppn_for_pre_process(ssd,lsn);                  
                     location=find_location(ssd,ppn);
@@ -793,6 +807,9 @@ Status erase_planes(struct ssd_info * ssd, unsigned int channel, unsigned int ch
  *这些block，否则有多少plane有这种直接删除的block就同时删除，不行的话，最差就是单独这个plane进行删除，连这也不满足的话，
  *直接跳出，到gc_parallelism函数进行进一步GC操作。该函数寻找全部为invalid的块，直接删除，找到可直接删除的返回1，没有找
  *到返回-1。
+ *===================================================================================================================
+ *The GC operation is triggered by the free block of a plane being less than the threshold. When a plane is triggered, the GC operation occupies the die where the plane is located, because the die is a separate unit.
+ *For a GC operation of a die, try to achieve four plane simultaneous erase, using the interleave erase operation. GC operations should be able to stop at any time (moving data and erasing
  *********************************************************************************************************************/
 int gc_direct_erase(struct ssd_info *ssd,unsigned int channel,unsigned int chip,unsigned int die,unsigned int plane)     
 {
@@ -1212,6 +1229,7 @@ int delete_gc_node(struct ssd_info *ssd, unsigned int channel,struct gc_operatio
 
 /***************************************
  *这个函数的功能是处理channel的每个gc操作
+ *This function handle each gc operation of the channel.
  ****************************************/
 Status gc_for_channel(struct ssd_info *ssd, unsigned int channel)
 {
@@ -1221,10 +1239,16 @@ Status gc_for_channel(struct ssd_info *ssd, unsigned int channel)
     long long next_state_predict_time=0;
     struct gc_operation *gc_node=NULL,*gc_p=NULL;
 
+    printf("%ld : Inside GC on channel %d\n", ssd->current_time, channel);
+
     /*******************************************************************************************
      *查找每一个gc_node，获取gc_node所在的chip的当前状态，下个状态，下个状态的预计时间
      *如果当前状态是空闲，或是下个状态是空闲而下个状态的预计时间小于当前时间，并且是不可中断的gc
      *那么就flag_priority令为1，否则为0
+     *==========================================================================================
+     *Find each gc_node, get the current state of the chip where gc_node is located, the next state, the expected time of the next state
+     *If the current state is idle, or the next state is idle and the expected time of the next state is less than the current time, and is uninterruptible gc
+     *Then the flag_priority is 1, otherwise 0
      ********************************************************************************************/
     gc_node=ssd->channel_head[channel].gc_command;
     while (gc_node!=NULL)
@@ -1252,6 +1276,7 @@ Status gc_for_channel(struct ssd_info *ssd, unsigned int channel)
             next_state_predict_time=ssd->channel_head[channel].chip_head[gc_node->chip].next_state_predict_time;
             /**********************************************
              *需要gc操作的目标chip是空闲的，才可以进行gc操作
+             *The target chip that needs the gc operation is idle before the gc operation can be performed.
              ***********************************************/
             if((current_state==CHIP_IDLE)||((next_state==CHIP_IDLE)&&(next_state_predict_time<=ssd->current_time)))   
             {
