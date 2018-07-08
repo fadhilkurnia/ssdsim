@@ -8,9 +8,9 @@ SSDsim was created by Yang Hu in the end of 2009 and upgraded to version 2.0 aft
 $ make clean
 ```
 ```
-$ make all
+$ make new
 ```
-2)	Run the executable file (`ssd`), followed by trace file name, it is required.
+2)	Run the executable file (`ssd`), followed by trace file name, it's required.
 ```
 $ ./ssd your_trace_file.trace
 ```
