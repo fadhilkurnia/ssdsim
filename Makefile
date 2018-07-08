@@ -1,14 +1,19 @@
 # ssdsim linux support
 all:ssd 
+new: ssd-test
 
 clean:
 	rm -f ssd *.o *~
 .PHONY: clean
 
-ssd: ssd.o avlTree.o flash.o initialize.o pagemap.o     
+ssd-test: test.o avlTree.o flash.o initialize.o pagemap.o
 	cc -g -o ssd test.o avlTree.o flash.o initialize.o pagemap.o
-ssd.o: flash.h initialize.h pagemap.h
+test.o: flash.h initialize.h pagemap.h
 	gcc -c -g test.c
+ssd: ssd.o avlTree.o flash.o initialize.o pagemap.o
+	cc -g -o ssd ssd.o avlTree.o flash.o initialize.o pagemap.o
+ssd.o: flash.h initialize.h pagemap.h
+	gcc -c -g ssd.c
 flash.o: pagemap.h
 	gcc -c -g flash.c
 initialize.o: avlTree.h pagemap.h

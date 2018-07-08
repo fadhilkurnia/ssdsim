@@ -1,6 +1,6 @@
 #include <stdlib.h>.
 #include <stdio.h>.
-#include "ssd.h"
+#include "test.h"
 
 int main(int argc, char *argv[]) 
 {
@@ -1380,7 +1380,7 @@ void display_help()
 
 void display_simulation_intro(struct ssd_info *ssd)
 {
-    printf("Begin simulating ... ... ... ...\n");
+    printf("\n\nBegin simulating ... ... ... ...\n");
     printf("  -parameter file: %s\n",ssd->parameterfilename); 
     printf("  -trace file    : %s\n",ssd->tracefilename);
     printf("\n\n   ^o^    OK, please wait a moment, and enjoy music and coffee   ^o^    \n\n");

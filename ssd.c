@@ -1,91 +1,77 @@
-/*****************************************************************************************************************************
-  This project was supported by the National Basic Research 973 Program of China under Grant No.2011CB302301
-  Huazhong University of Science and Technology (HUST)   Wuhan National Laboratory for Optoelectronics
-
-FileName: ssd.c
-Author: Hu Yang		Version: 2.1	Date:2011/12/02
-Description: 
-
-History:
-<contributor>     <time>        <version>       <desc>                   <e-mail>
-Yang Hu	        2009/09/25	      1.0		    Creat SSDsim       yanghu@foxmail.com
-2010/05/01        2.x           Change 
-Zhiming Zhu     2011/07/01        2.0           Change               812839842@qq.com
-Shuangwu Zhang  2011/11/01        2.1           Change               820876427@qq.com
-Chao Ren        2011/07/01        2.0           Change               529517386@qq.com
-Hao Luo         2011/01/01        2.0           Change               luohao135680@gmail.com
- *****************************************************************************************************************************/
-
+#include <stdlib.h>.
+#include <stdio.h>.
 #include "ssd.h"
-// #define DEBUG 1
 
-/********************************************************************************************************************************
-  1，main函数中initiatio()函数用来初始化ssd,；2，make_aged()函数使SSD成为aged，aged的ssd相当于使用过一段时间的ssd，里面有失效页，
-  non_aged的ssd是新的ssd，无失效页，失效页的比例可以在初始化参数中设置；3，pre_process_page()函数提前扫一遍读请求，把读请求
-  的lpn<--->ppn映射关系事先建立好，写请求的lpn<--->ppn映射关系在写的时候再建立，预处理trace防止读请求是读不到数据；4，simulate()是
-  核心处理函数，trace文件从读进来到处理完成都由这个函数来完成；5，statistic_output()函数将ssd结构中的信息输出到输出文件，输出的是
-  统计数据和平均数据，输出文件较小，trace_output文件则很大很详细；6，free_all_node()函数释放整个main函数中申请的节点
- *********************************************************************************************************************************
-  1, main function initiation() function is used to initialize ssd,; 2, make_aged() function makes SSD become aged, 
-  aged ssd is equivalent to the use of ssd for some time, there are invalid pages, Non_aged ssd is a new ssd, no invalid page, 
-  the proportion of invalid pages can be set in the initialization parameters; 3, pre_process_page() function scans 
-  the read request in advance, read request Lpn<--->ppn mapping relationship established in advance, 
-  the write request lpn<--->ppn mapping relationship to be established at the time of writing, 
-  preprocessing trace to prevent read requests can not read data; 4, simulate() Yes
-  The core processing function, trace file from reading to processing is completed by this function; 
-  5, statistic_output() function will output the information in the ssd structure to the output file, the output is
-  Statistics and average data, the output file is small, trace_output file is very large and detailed; 
-  6, free_all_node() function to release the entire main function in the application node
-*********************************************************************************************************************************/
-int  main(int argc, char *argv[])
+int main(int argc, char *argv[]) 
 {
-    unsigned  int i,j,k;
+    unsigned int i, j, k;
+    struct request *requests, *req_head, *current_req;
     struct ssd_info *ssd;
-
-#ifdef DEBUG
-    printf("enter main\n"); 
-#endif
+    u_int64_t latency;
 
     display_title();
-    if (argc < 2) {
-        display_help();
-        printf ("\033[31m  ERROR\033[0m: require trace file to start simulation\n");
-        return 1;
-    }
-
+    
     ssd=(struct ssd_info*)malloc(sizeof(struct ssd_info));
     alloc_assert(ssd,"ssd");
     memset(ssd,0, sizeof(struct ssd_info));
 
     ssd=parse_args(ssd, argc, argv);
     ssd=initiation(ssd);
-    make_aged(ssd);
-    pre_process_page(ssd);
+    ssd=make_aged(ssd);
+    ssd=pre_process_page(ssd);
 
-    for (i=0;i<ssd->parameter->channel_number;i++)
-    {
-        for (j=0;j<ssd->parameter->die_chip;j++)
-        {
-            for (k=0;k<ssd->parameter->plane_die;k++)
-            {
-                printf("%d,0,%d,%d:  %5d\n",i,j,k,ssd->channel_head[i].chip_head[0].die_head[j].plane_head[k].free_page);
-            }
-        }
-    }
-    fprintf(ssd->outputfile,"\t\t\t\t\t\t\t\t\tOUTPUT\n");
-    fprintf(ssd->outputfile,"****************** TRACE INFO ******************\n");
-
+    display_freepage(ssd);
+    display_simulation_intro(ssd);
     ssd=simulate(ssd);
-    statistic_output(ssd);  
-    /*	free_all_node(ssd);*/
 
-    printf("\n");
-    printf("the simulation is completed!\n");
+    statistic_output(ssd);
+    close_file(ssd);
 
-    return 1;
-    /* 	_CrtDumpMemoryLeaks(); */
+    printf("\nThe simulation is completed! \n");
+
+    return 0;
 }
 
+/***********************************************************************
+ * Read trace file, output file, and statistics file from args.
+ * Assign that file to ssd_info global struct.
+ ***********************************************************************/
+struct ssd_info *parse_args(struct ssd_info *ssd, int argc, char *argv[])
+{
+    int i;
+    char *opt;
+
+    if (argc < 2) {
+        display_help();
+        printf ("\033[31m  ERROR\033[0m: require trace file to start simulation\n");
+        exit(1);
+    }
+
+    // Assign default value
+    strncpy(ssd->parameterfilename,"page.parameters",16);
+    strncpy(ssd->outputfilename,"ex.out",7);
+    strncpy(ssd->statisticfilename,"statistic10.dat",16);
+    strncpy(ssd->statisticfilename2,"statistic2.dat",15);
+
+    // Read filename from program option parameter
+    for(i = 1; i < argc; i++) {
+        if (i == 1) {
+            strcpy(ssd->tracefilename, argv[i]);
+            continue;
+        }
+        strncpy(opt, argv[i], 3);
+        if (strcmp(opt, "-p=") == 0) {
+            strcpy(ssd->parameterfilename, argv[i]+3);
+            printf("ssd->parameterfilename %s \n", ssd->parameterfilename);
+        } else if (strcmp(opt, "-o=") == 0) {
+            strcpy(ssd->outputfilename, argv[i]+3);
+        } else if (strcmp(opt, "-s=") == 0) {
+            strcpy(ssd->statisticfilename, argv[i]+3);
+        }
+    }
+
+    return ssd;
+}
 
 /******************simulate() *********************************************************************
  *simulate()是核心处理函数，主要实现的功能包括
@@ -99,13 +85,6 @@ struct ssd_info *simulate(struct ssd_info *ssd)
     int flag=1,flag1=0;
     double output_step=0;
     unsigned int a=0,b=0;
-    //errno_t err;
-
-    printf("\n");
-    printf("begin simulating.......................\n");
-    printf("\n");
-    printf("\n");
-    printf("   ^o^    OK, please wait a moment, and enjoy music and coffee   ^o^    \n");
 
     ssd->tracefile = fopen(ssd->tracefilename,"r");
     if(ssd->tracefile == NULL)
@@ -138,7 +117,6 @@ struct ssd_info *simulate(struct ssd_info *ssd)
             }		
         }
 
-        printf("a\n");
         // FTL+FCL+Flash layer
         process(ssd);    
         trace_output(ssd);
@@ -210,8 +188,6 @@ int get_requests(struct ssd_info *ssd)
     lsn = lsn%large_lsn;
 
     nearest_event_time=find_nearest_event(ssd);
-
-    printf("%ld: nearest event time is %ld\n", ssd->current_time, nearest_event_time);
 
     if (nearest_event_time==MAX_INT64)
     {
@@ -348,7 +324,7 @@ struct ssd_info *buffer_management(struct ssd_info *ssd)
     memset(new_request->need_distr_flag, 0, sizeof(unsigned int)*((last_lpn-first_lpn+1)*ssd->parameter->subpage_page/32+1));
 
     if(new_request->operation==READ) 
-    {		
+    {	
         while(lpn<=last_lpn)      		
         {
             /************************************************************************************************
@@ -359,8 +335,8 @@ struct ssd_info *buffer_management(struct ssd_info *ssd)
             key.group=lpn;
             buffer_node= (struct buffer_group*)avlTreeFind(ssd->dram->buffer, (TREE_NODE *)&key);		// buffer node 
 
-            while((buffer_node!=NULL)&&(lsn<(lpn+1)*ssd->parameter->subpage_page)&&(lsn<=(new_request->lsn+new_request->size-1)))             			
-            {             	
+            while((buffer_node!=NULL)&&(lsn<(lpn+1)*ssd->parameter->subpage_page)&&(lsn<=(new_request->lsn+new_request->size-1)))
+            {
                 lsn_flag=full_page;
                 mask=1 << (lsn%ssd->parameter->subpage_page);
                 if(mask>31)
@@ -408,8 +384,7 @@ struct ssd_info *buffer_management(struct ssd_info *ssd)
             }	
 
             index=(lpn-first_lpn)/(32/ssd->parameter->subpage_page); 			
-            new_request->need_distr_flag[index]=new_request->need_distr_flag[index]|(need_distb_flag<<(((lpn-first_lpn)%(32/ssd->parameter->subpage_page))*ssd->parameter->subpage_page));	
-            lpn++;
+            new_request->need_distr_flag[index]=new_request->need_distr_flag[index]|(need_distb_flag<<(((lpn-first_lpn)%(32/ssd->parameter->subpage_page))*ssd->parameter->subpage_page));            lpn++;
 
         }
     }  
@@ -441,7 +416,6 @@ struct ssd_info *buffer_management(struct ssd_info *ssd)
     {
         if(new_request->need_distr_flag[j] != 0)
         {
-            printf("yap\n");
             complete_flag = 0;
         }
     }
@@ -449,6 +423,8 @@ struct ssd_info *buffer_management(struct ssd_info *ssd)
     /*************************************************************
      *如果请求已经被全部由buffer服务，该请求可以被直接响应，输出结果
      *这里假设dram的服务时间为1000ns
+     *If the request has been served entirely by the buffer, the request can be directly responded to the output.
+     *This assumes that the service time of the dram is 1000ns.
      **************************************************************/
     if((complete_flag == 1)&&(new_request->subs==NULL))               
     {
@@ -478,8 +454,10 @@ unsigned int lpn2ppn(struct ssd_info *ssd,unsigned int lsn)
  *读请求分配子请求函数，这里只处理读请求，写请求已经在buffer_management()函数中处理了
  *根据请求队列和buffer命中的检查，将每个请求分解成子请求，将子请求队列挂在channel上，
  *不同的channel有自己的子请求队列
+ *The read request allocates the sub-request function. Here only the read request is processed. The write request has been processed in the buffer_management() function.
+ *According to the check of the request queue and the buffer hit, each request is decomposed into sub-requests, and the sub-request queue is hung on the channel.
+ *Different channels have their own subrequest queues
  **********************************************************************************/
-
 struct ssd_info *distribute(struct ssd_info *ssd) 
 {
     unsigned int start, end, first_lsn,last_lsn,lpn,flag=0,flag_attached=0,full_page;
@@ -507,9 +485,9 @@ struct ssd_info *distribute(struct ssd_info *ssd)
     {
         if(req->distri_flag == 0)
         {
-            //如果还有一些读请求需要处理
+            //如果还有一些读请求需要处理 | If there are still some read requests that need to be processed
             if(req->complete_lsn_count != ssd->request_tail->size)
-            {		
+            {
                 first_lsn = req->lsn;				
                 last_lsn = first_lsn + req->size;
                 complt = req->need_distr_flag;
@@ -518,7 +496,7 @@ struct ssd_info *distribute(struct ssd_info *ssd)
                 i = (end - start)/32;	
 
                 while(i >= 0)
-                {	
+                {
                     /*************************************************************************************
                      *一个32位的整型数据的每一位代表一个子页，32/ssd->parameter->subpage_page就表示有多少页，
                      *这里的每一页的状态都存放在了 req->need_distr_flag中，也就是complt中，通过比较complt的
@@ -527,7 +505,7 @@ struct ssd_info *distribute(struct ssd_info *ssd)
                      *************************************************************************************/
                     for(j=0; j<32/ssd->parameter->subpage_page; j++)
                     {	
-                        k = (complt[((end-start)/32-i)] >>(ssd->parameter->subpage_page*j)) & full_page;	
+                        k = (complt[((end-start)/32-i)] >>(ssd->parameter->subpage_page*j)) & full_page;
                         if (k !=0)
                         {
                             lpn = start/ssd->parameter->subpage_page+ ((end-start)/32-i)*32/ssd->parameter->subpage_page + j;
@@ -565,9 +543,9 @@ struct ssd_info *distribute(struct ssd_info *ssd)
  *The trace_output() function is executed after all sub-requests of each request have been processed by the process() function.
  *Print out the relevant running results to the outputfile, the result here is mainly the running time
  **********************************************************************/
-int64_t trace_output(struct ssd_info* ssd){
+void trace_output(struct ssd_info* ssd){
     int flag = 1;	
-    int64_t start_time, end_time;
+    int64_t start_time, end_time, latency = -1;
     struct request *req, *pre_node;
     struct sub_request *sub, *tmp;
 
@@ -591,7 +569,8 @@ int64_t trace_output(struct ssd_info* ssd){
         end_time = 0;
         if(req->response_time != 0)
         {
-            fprintf(ssd->outputfile,"%16lld %10d %6d %2d %16lld %16lld %10lld\n",req->time,req->lsn, req->size, req->operation, req->begin_time, req->response_time, req->response_time-req->time);
+            latency = req->response_time-req->time;
+            fprintf(ssd->outputfile,"%16lld %10d %6d %2d %16lld %16lld %10lld\n",req->time,req->lsn, req->size, req->operation, req->begin_time, req->response_time, latency);
             fflush(ssd->outputfile);
 
             if(req->response_time-req->begin_time==0)
@@ -683,8 +662,8 @@ int64_t trace_output(struct ssd_info* ssd){
 
             if (flag == 1)
             {		
-                //fprintf(ssd->outputfile,"%10I64u %10u %6u %2u %16I64u %16I64u %10I64u\n",req->time,req->lsn, req->size, req->operation, start_time, end_time, end_time-req->time);
-                fprintf(ssd->outputfile,"%16lld %10d %6d %2d %16lld %16lld %10lld\n",req->time,req->lsn, req->size, req->operation, start_time, end_time, end_time-req->time);
+                latency = end_time-req->time;
+                fprintf(ssd->outputfile,"%16lld %10d %6d %2d %16lld %16lld %10lld\n",req->time,req->lsn, req->size, req->operation, start_time, end_time, latency);
                 fflush(ssd->outputfile);
 
                 if(end_time-start_time==0)
@@ -1169,7 +1148,6 @@ struct ssd_info *no_buffer_distribute(struct ssd_info *ssd)
     return ssd;
 }
 
-
 void display_title() 
 {
     printf("\n");
@@ -1194,7 +1172,10 @@ void display_help()
 
 void display_simulation_intro(struct ssd_info *ssd)
 {
-    printf("");
+    printf("\n\nBegin simulating ... ... ... ...\n");
+    printf("  -parameter file: %s\n",ssd->parameterfilename); 
+    printf("  -trace file    : %s\n",ssd->tracefilename);
+    printf("\n\n   ^o^    OK, please wait a moment, and enjoy music and coffee   ^o^    \n\n");
 }
 
 void display_freepage(struct ssd_info *ssd)
@@ -1206,43 +1187,16 @@ void display_freepage(struct ssd_info *ssd)
                 printf("%d,0,%d,%d:  %5d\n",i,j,k,ssd->channel_head[i].chip_head[0].die_head[j].plane_head[k].free_page);
 }
 
-/***********************************************************************
- * Read trace file, output file, and statistics file from args.
- * Assign that file to ssd_info global struct.
- ***********************************************************************/
-struct ssd_info *parse_args(struct ssd_info *ssd, int argc, char *argv[])
+void prep_output_for_simulation(struct ssd_info *ssd) 
 {
-    int i;
-    char *opt;
+    fprintf(ssd->outputfile,"      arrive           lsn     size ope     begin time    response time    process time\n");	
+    fflush(ssd->outputfile);
+}
 
-    if (argc < 2) {
-        display_help();
-        printf ("\033[31m  ERROR\033[0m: require trace file to start simulation\n");
-        exit(1);
-    }
-
-    // Assign default value
-    strncpy(ssd->parameterfilename,"page.parameters",16);
-    strncpy(ssd->outputfilename,"ex.out",7);
-    strncpy(ssd->statisticfilename,"statistic10.dat",16);
-    strncpy(ssd->statisticfilename2,"statistic2.dat",15);
-
-    // Read filename from program option parameter
-    for(i = 1; i < argc; i++) {
-        if (i == 1) {
-            strcpy(ssd->tracefilename, argv[i]);
-            continue;
-        }
-        strncpy(opt, argv[i], 3);
-        if (strcmp(opt, "-p=") == 0) {
-            strcpy(ssd->parameterfilename, argv[i]+3);
-            printf("ssd->parameterfilename %s \n", ssd->parameterfilename);
-        } else if (strcmp(opt, "-o=") == 0) {
-            strcpy(ssd->outputfilename, argv[i]+3);
-        } else if (strcmp(opt, "-s=") == 0) {
-            strcpy(ssd->statisticfilename, argv[i]+3);
-        }
-    }
-
-    return ssd;
+void close_file(struct ssd_info *ssd)
+{
+    if (ssd->tracefile) fclose(ssd->tracefile);
+    if (ssd->outputfile) fclose(ssd->outputfile);
+    if (ssd->statisticfile) fclose(ssd->statisticfile);
+    if (ssd->statisticfile2) fclose(ssd->statisticfile2);
 }
