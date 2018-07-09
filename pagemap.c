@@ -556,6 +556,7 @@ struct ssd_info *get_ppn(struct ssd_info *ssd,unsigned int channel,unsigned int 
             gc_node->state=GC_WAIT;
             gc_node->priority=GC_UNINTERRUPT;
             gc_node->next_node=ssd->channel_head[channel].gc_command;
+            gc_node->issued_time=ssd->current_time;
             ssd->channel_head[channel].gc_command=gc_node;
             ssd->gc_request++;
         }
@@ -1195,6 +1196,7 @@ int interrupt_gc(struct ssd_info *ssd,unsigned int channel,unsigned int chip,uns
 
 /*************************************************************
  *函数的功能是当处理完一个gc操作时，需要把gc链上的gc_node删除掉
+ *The function of the function is to delete the gc_node on the gc chain when processing a gc operation.
  **************************************************************/
 int delete_gc_node(struct ssd_info *ssd, unsigned int channel,struct gc_operation *gc_node)
 {
@@ -1221,6 +1223,10 @@ int delete_gc_node(struct ssd_info *ssd, unsigned int channel,struct gc_operatio
             gc_pre=gc_pre->next_node;
         }
     }
+
+    gc_node->end_time = ssd->current_time;
+    printf("%d \t %d \t %d \t %16ld \t %16ld %16ld\n", gc_node->chip, gc_node->die, gc_node->plane, gc_node->issued_time, gc_node->end_time, gc_node->end_time-gc_node->issued_time);
+
     free(gc_node);
     gc_node=NULL;
     ssd->gc_request--;
@@ -1238,8 +1244,6 @@ Status gc_for_channel(struct ssd_info *ssd, unsigned int channel)
     unsigned int current_state=0, next_state=0;
     long long next_state_predict_time=0;
     struct gc_operation *gc_node=NULL,*gc_p=NULL;
-
-    printf("%ld : Inside GC on channel %d\n", ssd->current_time, channel);
 
     /*******************************************************************************************
      *查找每一个gc_node，获取gc_node所在的chip的当前状态，下个状态，下个状态的预计时间
@@ -1290,7 +1294,7 @@ Status gc_for_channel(struct ssd_info *ssd, unsigned int channel)
     {
         return FAILURE;
     }
-
+    
     chip=gc_node->chip;
     die=gc_node->die;
     plane=gc_node->plane;

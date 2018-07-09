@@ -2764,6 +2764,7 @@ Status find_level_page(struct ssd_info *ssd,unsigned int channel,unsigned int ch
         gc_node->state=GC_WAIT;
         gc_node->priority=GC_UNINTERRUPT;
         gc_node->next_node=ssd->channel_head[channel].gc_command;
+        gc_node->issued_time=ssd->current_time;
         ssd->channel_head[channel].gc_command=gc_node;
         ssd->gc_request++;
     }
@@ -2782,6 +2783,7 @@ Status find_level_page(struct ssd_info *ssd,unsigned int channel,unsigned int ch
         gc_node->state=GC_WAIT;
         gc_node->priority=GC_UNINTERRUPT;
         gc_node->next_node=ssd->channel_head[channel].gc_command;
+        gc_node->issued_time=ssd->current_time;
         ssd->channel_head[channel].gc_command=gc_node;
         ssd->gc_request++;
     }

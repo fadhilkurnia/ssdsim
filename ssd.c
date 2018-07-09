@@ -1,5 +1,5 @@
-#include <stdlib.h>.
-#include <stdio.h>.
+#include <stdlib.h>
+#include <stdio.h>
 #include "ssd.h"
 
 int main(int argc, char *argv[]) 
@@ -96,6 +96,9 @@ struct ssd_info *simulate(struct ssd_info *ssd)
     fprintf(ssd->outputfile,"      arrive           lsn     size ope     begin time    response time    process time\n");	
     fflush(ssd->outputfile);
 
+    printf("GC processes log: \n");
+    printf("chip \tdie \tnode \t\t    start \t\t      end \t      time\n");
+
     while(flag!=100)      
     {
 
@@ -118,7 +121,7 @@ struct ssd_info *simulate(struct ssd_info *ssd)
         }
 
         // FTL+FCL+Flash layer
-        process(ssd);    
+        process(ssd);
         trace_output(ssd);
         if(flag == 0 && ssd->request_queue == NULL)
             flag = 100;

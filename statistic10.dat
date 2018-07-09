@@ -1,5 +1,5 @@
 parameter file: page.parameters
-trace file: random-read.trace
+trace file: write-large-random.trace
 -----------------------parameter file----------------------
 #parameter file
 dram capacity = 131074;         # the unit is B
@@ -22,7 +22,7 @@ chip number[15] = 0;
 chip number[16] = 0;
 chip number[17] = 0;
 chip number[18] = 0;
-channel number = 2;             # the number of channel
+channel number = 1;             # the number of channel
 chip number = 4;
 die number = 2;      
 plane number = 2;
@@ -87,47 +87,43 @@ advanced command=31;                # advanced command indicator, 0 for no advan
 advanced command priority=0;        # 0 for interleave is prior to two-plane, 1 for two-plane is prior to interleave
 greed CB command=0;                 # 1 for using copyback command greedily, 0 for not
 greed MPW command=1;                # 1 for using multi-plane write greedily, 0 for not
-aged=0;                             # 1 for making SSD aged, 0 for keeping SSD non-aged
+aged=1;                             # 1 for making SSD aged, 0 for keeping SSD non-aged
 aged ratio=0.7;                     # If we need to make SSD aged, set the aged ratio in advance
 -----------------------simulation output----------------------
-the 0 channel, 0 chip, 0 die, 2048 plane has :             0 erase operations
-the 0 channel, 0 chip, 1 die, 2048 plane has :             0 erase operations
-the 0 channel, 1 chip, 0 die, 2048 plane has :             0 erase operations
-the 0 channel, 1 chip, 1 die, 2048 plane has :             0 erase operations
-the 1 channel, 0 chip, 0 die, 2048 plane has :             0 erase operations
-the 1 channel, 0 chip, 1 die, 2048 plane has :             0 erase operations
-the 1 channel, 1 chip, 0 die, 2048 plane has :             0 erase operations
-the 1 channel, 1 chip, 1 die, 2048 plane has :             0 erase operations
+the 0 channel, 0 chip, 0 die, 2048 plane has :             1 erase operations
+the 0 channel, 0 chip, 1 die, 2048 plane has :             1 erase operations
+the 0 channel, 1 chip, 0 die, 2048 plane has :             1 erase operations
+the 0 channel, 1 chip, 1 die, 2048 plane has :             1 erase operations
 
 
 ---------------------------statistic data---------------------------
 min lsn:             0
 max lsn:         80000
-read count:            20
-program count:            20                        include the flash write count leaded by read requests
+read count:             0
+program count:           258                        include the flash write count leaded by read requests
 the read operation leaded by un-covered update count:             0
-erase count:             0
+erase count:             8
 direct erase count:             0
-copy back count:             0
+copy back count:            15
 multi-plane program count:             0
 multi-plane read count:             0
-interleave count:             0
+interleave count:            54
 interleave read count:             0
 interleave two plane and one program count:             0
-interleave two plane count:             0
-gc copy back count:             0
-write flash count:            19
-waste page count:             0
+interleave two plane count:            53
+gc copy back count:            15
+write flash count:           258
+waste page count:           180
 interleave erase count:             0
 multiple plane erase count:             0
 interleave multiple plane erase count:             0
-read request count:            20
-write request count:             0
-read request average size:      4.000000
-write request average size:      0.000000
-read request average response time: 299028
+read request count:             0
+write request count:            20
+read request average size:      0.000000
+write request average size:     64.000000
+write request average response time: 2967187
 buffer read hits:             0
 buffer read miss:             0
-buffer write hits:             0
-buffer write miss:             0
-erase:             0
+buffer write hits:           172
+buffer write miss:           852
+erase:             4
