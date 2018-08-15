@@ -232,7 +232,6 @@ struct ssd_info *pre_process_page(struct ssd_info *ssd)
                  *B, this state > 0, indicating that there has been a previous write, this requires further comparison of the state, because the newly written state can have overlapping sectors with the previous state.
                  ********************************************************************************************************/
                 lpn=lsn/ssd->parameter->subpage_page;
-                printf("pre process lsn:%d lpn:%d  state:%d\n", lsn, lpn, ssd->dram->map->map_entry[lpn].state);
                 if(ssd->dram->map->map_entry[lpn].state==0)                 /*状态为0的情况*/
                 {
                     /**************************************************************
@@ -459,9 +458,9 @@ struct ssd_info *get_ppn(struct ssd_info *ssd,unsigned int channel,unsigned int 
     ssd->channel_head[channel].chip_head[chip].die_head[die].plane_head[plane].blk_head[active_block].last_write_page++;	
     ssd->channel_head[channel].chip_head[chip].die_head[die].plane_head[plane].blk_head[active_block].free_page_num--;
 
-    if(ssd->channel_head[channel].chip_head[chip].die_head[die].plane_head[plane].blk_head[active_block].last_write_page>63)
+    if(ssd->channel_head[channel].chip_head[chip].die_head[die].plane_head[plane].blk_head[active_block].last_write_page>=ssd->parameter->page_block)
     {
-        printf("error! the last write page larger than 64!!\n");
+        printf("error! the last write page larger than %d!!\n", ssd->parameter->page_block);
         while(1){}
     }
 
@@ -556,7 +555,8 @@ struct ssd_info *get_ppn(struct ssd_info *ssd,unsigned int channel,unsigned int 
             gc_node->state=GC_WAIT;
             gc_node->priority=GC_UNINTERRUPT;
             gc_node->next_node=ssd->channel_head[channel].gc_command;
-            gc_node->issued_time=ssd->current_time;
+            gc_node->x_free_percentage = (double) ssd->channel_head[channel].chip_head[chip].die_head[die].plane_head[plane].free_page / (double) (ssd->parameter->page_block*ssd->parameter->block_plane) * (double) 100;
+            gc_node->x_moved_pages=0;
             ssd->channel_head[channel].gc_command=gc_node;
             ssd->gc_request++;
         }
@@ -588,9 +588,9 @@ unsigned int get_ppn_for_gc(struct ssd_info *ssd,unsigned int channel,unsigned i
     ssd->channel_head[channel].chip_head[chip].die_head[die].plane_head[plane].blk_head[active_block].last_write_page++;	
     ssd->channel_head[channel].chip_head[chip].die_head[die].plane_head[plane].blk_head[active_block].free_page_num--;
 
-    if(ssd->channel_head[channel].chip_head[chip].die_head[die].plane_head[plane].blk_head[active_block].last_write_page>63)
+    if(ssd->channel_head[channel].chip_head[chip].die_head[die].plane_head[plane].blk_head[active_block].last_write_page >= ssd->parameter->page_block)
     {
-        printf("error! the last write page larger than 64!!\n");
+        printf("error! the last write page larger than %d!!\n", ssd->parameter->page_block);
         while(1){}
     }
 
@@ -1003,7 +1003,7 @@ Status move_page(struct ssd_info * ssd, struct local *location, unsigned int * t
  *目标的plane没有可以直接删除的block，需要寻找目标擦除块后在实施擦除操作，用在不能中断的gc操作中，成功删除一个块，返回1，没有删除一个块返回-1
  *在这个函数中，不用考虑目标channel,die是否是空闲的,擦除invalid_page_num最多的block
  ********************************************************************************************************************************************/
-int uninterrupt_gc(struct ssd_info *ssd,unsigned int channel,unsigned int chip,unsigned int die,unsigned int plane)       
+int uninterrupt_gc(struct ssd_info *ssd,unsigned int channel,unsigned int chip,unsigned int die,unsigned int plane, struct gc_operation *gc_node) 
 {
     unsigned int i=0,invalid_page=0;
     unsigned int block,active_block,transfer_size,free_page,page_move_count=0;                           /*记录失效页最多的块号*/
@@ -1069,6 +1069,9 @@ int uninterrupt_gc(struct ssd_info *ssd,unsigned int channel,unsigned int chip,u
             location=NULL;
         }				
     }
+
+    gc_node->x_moved_pages = page_move_count;
+
     erase_operation(ssd,channel ,chip , die,plane ,block);	                                              /*执行完move_page操作后，就立即执行block的擦除操作*/
 
     ssd->channel_head[channel].current_state=CHANNEL_GC;									
@@ -1086,7 +1089,6 @@ int uninterrupt_gc(struct ssd_info *ssd,unsigned int channel,unsigned int chip,u
     {
         if (ssd->parameter->greed_CB_ad==1)
         {
-
             ssd->channel_head[channel].next_state_predict_time=ssd->current_time+page_move_count*(7*ssd->parameter->time_characteristics.tWC+ssd->parameter->time_characteristics.tR+7*ssd->parameter->time_characteristics.tWC+ssd->parameter->time_characteristics.tPROG);			
             ssd->channel_head[channel].chip_head[chip].next_state_predict_time=ssd->channel_head[channel].next_state_predict_time+ssd->parameter->time_characteristics.tBERS;
         } 
@@ -1094,9 +1096,22 @@ int uninterrupt_gc(struct ssd_info *ssd,unsigned int channel,unsigned int chip,u
     else
     {
 
-        ssd->channel_head[channel].next_state_predict_time=ssd->current_time+page_move_count*(7*ssd->parameter->time_characteristics.tWC+ssd->parameter->time_characteristics.tR+7*ssd->parameter->time_characteristics.tWC+ssd->parameter->time_characteristics.tPROG)+transfer_size*SECTOR*(ssd->parameter->time_characteristics.tWC+ssd->parameter->time_characteristics.tRC);					
+        ssd->channel_head[channel].next_state_predict_time=ssd->current_time+page_move_count*(7*ssd->parameter->time_characteristics.tWC+ssd->parameter->time_characteristics.tR+7*ssd->parameter->time_characteristics.tWC+ssd->parameter->time_characteristics.tPROG)+transfer_size*SECTOR*(ssd->parameter->time_characteristics.tWC+ssd->parameter->time_characteristics.tRC);
         ssd->channel_head[channel].chip_head[chip].next_state_predict_time=ssd->channel_head[channel].next_state_predict_time+ssd->parameter->time_characteristics.tBERS;
 
+        // printf(">> %lld=%lld+%ld*(7%ld+%ld+7%ld+%ld)+%ld*%ld*(%ld+%ld) [%lld]\n", 
+        //     ssd->channel_head[channel].next_state_predict_time,
+        //     ssd->current_time,
+        //     page_move_count,
+        //     ssd->parameter->time_characteristics.tWC,
+        //     ssd->parameter->time_characteristics.tR,
+        //     ssd->parameter->time_characteristics.tWC,
+        //     ssd->parameter->time_characteristics.tPROG,
+        //     transfer_size,
+        //     SECTOR,
+        //     ssd->parameter->time_characteristics.tWC,
+        //     ssd->parameter->time_characteristics.tRC,
+        //     ssd->channel_head[channel].next_state_predict_time - ssd->current_time);
     }
 
     return 1;
@@ -1111,6 +1126,7 @@ int interrupt_gc(struct ssd_info *ssd,unsigned int channel,unsigned int chip,uns
 {
     unsigned int i,block,active_block,transfer_size,invalid_page=0;
     struct local *location;
+    gc_node->x_moved_pages = 0;
 
     active_block=ssd->channel_head[channel].chip_head[chip].die_head[die].plane_head[plane].active_block;
     transfer_size=0;
@@ -1146,6 +1162,7 @@ int interrupt_gc(struct ssd_info *ssd,unsigned int channel,unsigned int chip,uns
                 transfer_size=0;
 
                 move_page( ssd, location, &transfer_size);
+                gc_node->x_moved_pages = gc_node->x_moved_pages+1;
 
                 free(location);
                 location=NULL;
@@ -1224,9 +1241,20 @@ int delete_gc_node(struct ssd_info *ssd, unsigned int channel,struct gc_operatio
         }
     }
 
-    gc_node->end_time = ssd->current_time;
-    printf("%d \t %d \t %d \t %16ld \t %16ld %16ld\n", gc_node->chip, gc_node->die, gc_node->plane, gc_node->issued_time, gc_node->end_time, gc_node->end_time-gc_node->issued_time);
+    gc_node->x_end_time = ssd->channel_head[channel].next_state_predict_time;
 
+    int64_t start_time = gc_node->x_start_time;
+    int64_t end_time = gc_node->x_end_time;
+    unsigned int moved_page = gc_node->x_moved_pages;
+    double free_page_percent = gc_node->x_free_percentage;
+
+    if (end_time != start_time) {
+        printf("%d \t %d \t %d \t %d \t%6.2f %8ld %16ld %16ld %16ld\n", channel, gc_node->chip, gc_node->die, gc_node->plane, free_page_percent, moved_page, start_time, end_time, end_time-start_time);
+        fprintf(ssd->statisticfile2, "%d \t %d \t %d \t %d \t%6.2f %8ld %16ld %16ld %16ld\n", channel, gc_node->chip, gc_node->die, gc_node->plane, free_page_percent, moved_page, start_time, end_time, end_time-start_time);
+        fflush(ssd->statisticfile2);
+        ssd->num_gc++;
+    }
+    
     free(gc_node);
     gc_node=NULL;
     ssd->gc_request--;
@@ -1299,12 +1327,14 @@ Status gc_for_channel(struct ssd_info *ssd, unsigned int channel)
     die=gc_node->die;
     plane=gc_node->plane;
 
+    gc_node->x_start_time = ssd->current_time;
+
     if (gc_node->priority==GC_UNINTERRUPT)
     {
         flag_direct_erase=gc_direct_erase(ssd,channel,chip,die,plane);
         if (flag_direct_erase!=SUCCESS)
         {
-            flag_gc=uninterrupt_gc(ssd,channel,chip,die,plane);                         /*当一个完整的gc操作完成时（已经擦除一个块，回收了一定数量的flash空间），返回1，将channel上相应的gc操作请求节点删除*/
+            flag_gc=uninterrupt_gc(ssd,channel,chip,die,plane, gc_node);                         /*当一个完整的gc操作完成时（已经擦除一个块，回收了一定数量的flash空间），返回1，将channel上相应的gc操作请求节点删除*/
             if (flag_gc==1)
             {
                 delete_gc_node(ssd,channel,gc_node);

@@ -545,9 +545,9 @@ struct ssd_info *buffer_management(struct ssd_info *ssd)
             {
                 lsn_flag=full_page;
                 mask=1 << (lsn%ssd->parameter->subpage_page);
-                if(mask>31)
+                if(mask>255) // 4KB page                
                 {
-                    printf("the subpage number is larger than 32!add some cases");
+                    printf("the subpage number is larger than 8!add some cases");
                     getchar(); 		   
                 }
                 else if((buffer_node->stored & mask)==mask)

@@ -136,7 +136,14 @@ struct ssd_info *initiation(struct ssd_info *ssd)
         printf("the statistic file can't open\n");
         return NULL;
     }
+    printf("\n");
 
+    ssd->statisticfile2=fopen(ssd->statisticfilename2,"w");
+    if(ssd->statisticfile2==NULL)
+    {
+        printf("the statistic2 file can't open\n");
+        return NULL;
+    }
     printf("\n");
 
 

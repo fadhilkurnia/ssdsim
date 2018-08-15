@@ -49,9 +49,11 @@ struct ssd_info *parse_args(struct ssd_info *ssd, int argc, char *argv[])
 
     // Assign default value
     strncpy(ssd->parameterfilename,"page.parameters",16);
-    strncpy(ssd->outputfilename,"ex.out",7);
-    strncpy(ssd->statisticfilename,"statistic10.dat",16);
-    strncpy(ssd->statisticfilename2,"statistic2.dat",15);
+    strncpy(ssd->outputfilename,"raw/ex.out",11);
+    strncpy(ssd->statisticfilename,"raw/statistic10.dat",20);
+    strncpy(ssd->statisticfilename2,"raw/statistic2.dat",19);
+    strncpy(ssd->outfile_io, "raw/io.dat", 10);
+    strncpy(ssd->outfile_gc, "raw/gc.dat", 10);
 
     // Read filename from program option parameter
     for(i = 1; i < argc; i++) {
@@ -87,8 +89,7 @@ struct ssd_info *simulate(struct ssd_info *ssd)
     unsigned int a=0,b=0;
 
     ssd->tracefile = fopen(ssd->tracefilename,"r");
-    if(ssd->tracefile == NULL)
-    {  
+    if(ssd->tracefile == NULL) {
         printf("the trace file can't open\n");
         return NULL;
     }
@@ -96,8 +97,8 @@ struct ssd_info *simulate(struct ssd_info *ssd)
     fprintf(ssd->outputfile,"      arrive           lsn     size ope     begin time    response time    process time\n");	
     fflush(ssd->outputfile);
 
-    printf("GC processes log: \n");
-    printf("chip \tdie \tnode \t\t    start \t\t      end \t      time\n");
+    printf("GC processes log: page/plane = %ld\n", ssd->parameter->page_block*ssd->parameter->block_plane);
+    printf("cnl \tchp \tdie \tpln\tfrpg(\%)\t mvd_pg\t\tstart(ns)\t  end(ns)\t time(ns)\n");
 
     while(flag!=100)      
     {
@@ -342,9 +343,9 @@ struct ssd_info *buffer_management(struct ssd_info *ssd)
             {
                 lsn_flag=full_page;
                 mask=1 << (lsn%ssd->parameter->subpage_page);
-                if(mask>31)
+                if(mask>255) // 4KB page
                 {
-                    printf("the subpage number is larger than 32!add some cases");
+                    printf("the subpage number is larger than 8!add some cases");
                     getchar(); 		   
                 }
                 else if((buffer_node->stored & mask)==mask)
@@ -857,6 +858,7 @@ void statistic_output(struct ssd_info *ssd)
     fprintf(ssd->statisticfile,"interleave two plane and one program count: %13d\n",ssd->inter_mplane_prog_count);
     fprintf(ssd->statisticfile,"interleave two plane count: %13d\n",ssd->inter_mplane_count);
     fprintf(ssd->statisticfile,"gc copy back count: %13d\n",ssd->gc_copy_back);
+    fprintf(ssd->statisticfile,"gc count: %13d\n",ssd->num_gc);
     fprintf(ssd->statisticfile,"write flash count: %13d\n",ssd->write_flash_count);
     fprintf(ssd->statisticfile,"waste page count: %13d\n",ssd->waste_page_count);
     fprintf(ssd->statisticfile,"interleave erase count: %13d\n",ssd->interleave_erase_count);

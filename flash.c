@@ -569,7 +569,7 @@ Status write_page(struct ssd_info *ssd,unsigned int channel,unsigned int chip,un
     if(last_write_page>=(int)(ssd->parameter->page_block))
     {
         ssd->channel_head[channel].chip_head[chip].die_head[die].plane_head[plane].blk_head[active_block].last_write_page=0;
-        printf("error! the last write page larger than 64!!\n");
+        printf(" write page larger than 64!!\n");
         return ERROR;
     }
 
@@ -1608,7 +1608,7 @@ struct ssd_info *process(struct ssd_info *ssd)
         i=(random_num+chan)%ssd->parameter->channel_number;
         flag=0;
         flag_gc=0;                                                                       /*每次进入channel时，将gc的标志位置为0，默认认为没有进行gc操作*/
-        if((ssd->channel_head[i].current_state==CHANNEL_IDLE)||(ssd->channel_head[i].next_state==CHANNEL_IDLE&&ssd->channel_head[i].next_state_predict_time<=ssd->current_time))		
+        if((ssd->channel_head[i].current_state==CHANNEL_IDLE)||(ssd->channel_head[i].next_state==CHANNEL_IDLE&&ssd->channel_head[i].next_state_predict_time<=ssd->current_time))
         {   
             if (ssd->gc_request>0)                                                       /*有gc操作，需要进行一定的判断 | Have gc operation, need to make certain judgment*/
             {
@@ -2764,7 +2764,8 @@ Status find_level_page(struct ssd_info *ssd,unsigned int channel,unsigned int ch
         gc_node->state=GC_WAIT;
         gc_node->priority=GC_UNINTERRUPT;
         gc_node->next_node=ssd->channel_head[channel].gc_command;
-        gc_node->issued_time=ssd->current_time;
+        gc_node->x_free_percentage = (double) ssd->channel_head[channel].chip_head[chip].die_head[die].plane_head[planeA].free_page / (double) (ssd->parameter->page_block*ssd->parameter->block_plane) * (double) 100;
+        gc_node->x_moved_pages=0;
         ssd->channel_head[channel].gc_command=gc_node;
         ssd->gc_request++;
     }
@@ -2783,7 +2784,8 @@ Status find_level_page(struct ssd_info *ssd,unsigned int channel,unsigned int ch
         gc_node->state=GC_WAIT;
         gc_node->priority=GC_UNINTERRUPT;
         gc_node->next_node=ssd->channel_head[channel].gc_command;
-        gc_node->issued_time=ssd->current_time;
+        gc_node->x_free_percentage = (double) ssd->channel_head[channel].chip_head[chip].die_head[die].plane_head[planeB].free_page / (double) (ssd->parameter->page_block*ssd->parameter->block_plane) * (double) 100;
+        gc_node->x_moved_pages=0;
         ssd->channel_head[channel].gc_command=gc_node;
         ssd->gc_request++;
     }
@@ -2804,9 +2806,9 @@ struct ssd_info *flash_page_state_modify(struct ssd_info *ssd,struct sub_request
     ssd->channel_head[channel].chip_head[chip].die_head[die].plane_head[plane].blk_head[block].last_write_page=page;
     ssd->channel_head[channel].chip_head[chip].die_head[die].plane_head[plane].blk_head[block].free_page_num--;
 
-    if(ssd->channel_head[channel].chip_head[chip].die_head[die].plane_head[plane].blk_head[block].last_write_page>63)
+    if(ssd->channel_head[channel].chip_head[chip].die_head[die].plane_head[plane].blk_head[block].last_write_page>=ssd->parameter->page_block)
     {
-        printf("error! the last write page larger than 64!!\n");
+        printf("error! the last write page larger than %d!!\n", ssd->parameter->page_block);
         while(1){}
     }
 
@@ -2916,9 +2918,9 @@ struct ssd_info *make_same_level(struct ssd_info *ssd,unsigned int channel,unsig
         }
     }
 
-    if(ssd->channel_head[channel].chip_head[chip].die_head[die].plane_head[plane].blk_head[block].last_write_page>63)
+    if(ssd->channel_head[channel].chip_head[chip].die_head[die].plane_head[plane].blk_head[block].last_write_page>=ssd->parameter->page_block)
     {
-        printf("error! the last write page larger than 64!!\n");
+        printf("error! the last write page larger than %d!!\n", ssd->parameter->page_block);
         while(1){}
     }
 

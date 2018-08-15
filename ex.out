@@ -1,12 +1,12 @@
 parameter file: page.parameters
-trace file: write-large-random.trace
+trace file: tracefile/DTRS.trace
 -----------------------parameter file----------------------
 #parameter file
 dram capacity = 131074;         # the unit is B
-chip number[0] = 2;
+chip number[0] = 8;
 chip number[1] = 2;
-chip number[2] = 0;
-chip number[3] = 0;
+chip number[2] = 2;
+chip number[3] = 2;
 chip number[4] = 0;
 chip number[5] = 0;
 chip number[6] = 0;
@@ -23,17 +23,17 @@ chip number[16] = 0;
 chip number[17] = 0;
 chip number[18] = 0;
 channel number = 1;             # the number of channel
-chip number = 4;
-die number = 2;      
-plane number = 2;
+chip number = 8;
+die number = 1;      
+plane number = 1;
 block number = 2048;
-page number = 64;
+page number = 256;
 subpage page = 4;
 page capacity = 2048;
 subpage capacity = 512;
 t_PROG = 200000;                # the unit is ns
 t_DBSY = 50;
-t_BERS = 1500000;
+t_BERS = 1500000;   # time of block erase operation
 t_CLS = 12;
 t_CLH = 5;
 t_CS = 20;
@@ -83,71 +83,10 @@ gc hard threshold=0.30;             #
 allocation=0;                       # 0 for dynamic allocation, 1 for static allocation
 static_allocation=2;                # record static allocation mode like all static allocation modes0-6 in ICS2011 paper
 dynamic_allocation=0;               # record dynamic allocation mode, 0 for all dynamic, 1 for fixed channel and dynamic package, die, plane
-advanced command=31;                # advanced command indicator, 0 for no advanced command, bin number 00001 for random, 00010 for copyback, 00100 for two-plane-program, 01000 for interleave, 10000 for two-plane-read, 11111 for using all��
+advanced command=29;                # advanced command indicator, 0 for no advanced command, bin number 00001 for random, 00010 for copyback, 00100 for two-plane-program, 01000 for interleave, 10000 for two-plane-read, 11111 for using all��
 advanced command priority=0;        # 0 for interleave is prior to two-plane, 1 for two-plane is prior to interleave
-greed CB command=0;                 # 1 for using copyback command greedily, 0 for not
+greed CB command=1;                 # 1 for using copyback command greedily, 0 for not
 greed MPW command=1;                # 1 for using multi-plane write greedily, 0 for not
 aged=1;                             # 1 for making SSD aged, 0 for keeping SSD non-aged
-aged ratio=0.7;                     # If we need to make SSD aged, set the aged ratio in advance
+aged ratio=0.75;                     # If we need to make SSD aged, set the aged ratio in advance
 -----------------------simulation output----------------------
-chip:0,die:0,plane:0 have free page: 39302
-chip:0,die:0,plane:1 have free page: 39302
-chip:0,die:1,plane:0 have free page: 39302
-chip:0,die:1,plane:1 have free page: 39302
-      arrive           lsn     size ope     begin time    response time    process time
-            1000          0     64  0             1000             2000       1000
-            2000      10000     64  0             2000             3000       1000
-            3000        100     64  0             3000             4000       1000
-            4000      34860     64  0             4000             5000       1000
-            5000        864     64  0             5000           559125     554125
-            6000         16     64  0             6000          1061875    1055875
-            7000        200     64  0             7000          1564625    1557625
-            8000        512     64  0             8000          2067375    2059375
-            9000      16324     64  0             9000          2570125    2561125
-           10000        892     64  0            10000          3072875    3062875
-           11000         64     64  0            11000          3575625    3564625
-           12000      12000     64  0            12000          4078375    4066375
-           13000      80000     64  0            13000          4581125    4568125
-           20000          8     64  0            20000            21000       1000
-           14000      45600     64  0            14000          5186625    5172625
-           15000         72     64  0            15000          5335250    5320250
-           16000       1024     64  0            16000          5838000    5822000
-           17000       8192     64  0            17000          6340750    6323750
-           18000          0     64  0            18000          6843500    6825500
-           19000         12     64  0            19000          6843500    6824500
-the 0 channel, 0 chip, 0 die, 2048 plane has :             1 erase operations
-the 0 channel, 0 chip, 1 die, 2048 plane has :             1 erase operations
-the 0 channel, 1 chip, 0 die, 2048 plane has :             1 erase operations
-the 0 channel, 1 chip, 1 die, 2048 plane has :             1 erase operations
-
-
----------------------------statistic data---------------------------
-min lsn:             0
-max lsn:         80000
-read count:             0
-program count:           258                        include the flash write count leaded by read requests
-the read operation leaded by un-covered update count:             0
-erase count:             8
-direct erase count:             0
-copy back count:            15
-multi-plane program count:             0
-multi-plane read count:             0
-interleave write count:            54
-interleave read count:             0
-interleave two plane and one program count:             0
-interleave two plane count:            53
-gc copy back count:            15
-write flash count:           258
-interleave erase count:             0
-multiple plane erase count:             0
-interleave multiple plane erase count:             0
-read request count:             0
-write request count:            20
-read request average size:      0.000000
-write request average size:     64.000000
-write request average response time: 2967187
-buffer read hits:             0
-buffer read miss:             0
-buffer write hits:           172
-buffer write miss:           852
-erase:             4
