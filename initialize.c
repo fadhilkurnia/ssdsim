@@ -146,6 +146,38 @@ struct ssd_info *initiation(struct ssd_info *ssd)
     }
     printf("\n");
 
+    ssd->outfile_gc=fopen(ssd->outfile_gc_name,"w");
+    if(ssd->outfile_gc==NULL)
+    {
+        printf("the outfile_gc file can't open\n");
+        return NULL;
+    }
+    printf("\n");
+
+    ssd->outfile_io=fopen(ssd->outfile_io_name,"w");
+    if(ssd->outfile_io==NULL)
+    {
+        printf("the outfile_io file can't open\n");
+        return NULL;
+    }
+    printf("\n");
+
+    ssd->outfile_io_write=fopen(ssd->outfile_io_write_name,"w");
+    if(ssd->outfile_io_write==NULL)
+    {
+        printf("the outfile_io_write file can't open\n");
+        return NULL;
+    }
+    printf("\n");
+
+    ssd->outfile_io_read=fopen(ssd->outfile_io_read_name,"w");
+    if(ssd->outfile_io_read==NULL)
+    {
+        printf("the outfile_io_read file can't open\n");
+        return NULL;
+    }
+    printf("\n");
+
 
     fprintf(ssd->outputfile,"parameter file: %s\n",ssd->parameterfilename); 
     fprintf(ssd->outputfile,"trace file: %s\n",ssd->tracefilename);
@@ -373,13 +405,13 @@ struct parameter_value *load_parameters(char parameter_file[30])
         printf("the file parameter_file error!\n");	
         return p;
     }
-    fp1=fopen("parameters_name.txt","w");
+    fp1=fopen("raw/parameters_name.txt","w");
     if(fp1==NULL)
     {	
         printf("the file parameter_name error!\n");	
         return p;
     }
-    fp2=fopen("parameters_value.txt","w");
+    fp2=fopen("raw/parameters_value.txt","w");
     if(fp2==NULL)
     {	
         printf("the file parameter_value error!\n");	

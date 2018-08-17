@@ -57,9 +57,9 @@ struct ssd_info *parse_args(struct ssd_info *ssd, int argc, char *argv[])
 
     // Assign default value
     strncpy(ssd->parameterfilename,"page.parameters",16);
-    strncpy(ssd->outputfilename,"ex.out",7);
-    strncpy(ssd->statisticfilename,"statistic10.dat",16);
-    strncpy(ssd->statisticfilename2,"statistic2.dat",15);
+    strncpy(ssd->outputfilename,"raw/ex.out",11);
+    strncpy(ssd->statisticfilename,"raw/statistic10.dat",20);
+    strncpy(ssd->statisticfilename2,"raw/statistic2.dat",19);
 
     // Read filename from program option parameter
     for(i = 1; i < argc; i++) {
@@ -1374,7 +1374,7 @@ void display_help()
     printf("  usage: ssd trace_file [options]\n");
     printf("    options:\n");
     printf("     -p=<filename> \t parameter filename (default: page.parameter)\n");
-    printf("     -o=<filename> \t output filename (default: ex.out)\n");
+    printf("     -o=<filename> \t output filename (default: raw/ex.out)\n");
     printf("     -s=<filename> \t statistics output filename (default: statistic10.dat)\n\n");
 }
 

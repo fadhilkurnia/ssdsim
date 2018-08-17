@@ -16,7 +16,9 @@ int main(int argc, char *argv[])
     memset(ssd,0, sizeof(struct ssd_info));
 
     ssd=parse_args(ssd, argc, argv);
+    printf("after parsing args\n");
     ssd=initiation(ssd);
+    printf("after initiation\n");
     ssd=make_aged(ssd);
     ssd=pre_process_page(ssd);
 
@@ -52,8 +54,10 @@ struct ssd_info *parse_args(struct ssd_info *ssd, int argc, char *argv[])
     strncpy(ssd->outputfilename,"raw/ex.out",11);
     strncpy(ssd->statisticfilename,"raw/statistic10.dat",20);
     strncpy(ssd->statisticfilename2,"raw/statistic2.dat",19);
-    strncpy(ssd->outfile_io, "raw/io.dat", 10);
-    strncpy(ssd->outfile_gc, "raw/gc.dat", 10);
+    strncpy(ssd->outfile_io_name, "raw/io.dat", 11);
+    strncpy(ssd->outfile_io_write_name, "raw/io_write.dat", 17);
+    strncpy(ssd->outfile_io_read_name, "raw/io_read.dat", 16);
+    strncpy(ssd->outfile_gc_name, "raw/gc.dat", 11);
 
     // Read filename from program option parameter
     for(i = 1; i < argc; i++) {
@@ -576,6 +580,15 @@ void trace_output(struct ssd_info* ssd){
             latency = req->response_time-req->time;
             fprintf(ssd->outputfile,"%16lld %10d %6d %2d %16lld %16lld %10lld\n",req->time,req->lsn, req->size, req->operation, req->begin_time, req->response_time, latency);
             fflush(ssd->outputfile);
+            fprintf(ssd->outfile_io,"%16lld %10d %6d %2d %16lld %16lld %10lld\n",req->time,req->lsn, req->size, req->operation, req->begin_time, req->response_time, latency);
+            fflush(ssd->outfile_io);
+            if (req->operation == WRITE) {
+                fprintf(ssd->outfile_io_write,"%16lld %10d %6d %2d %16lld %16lld %10lld\n",req->time,req->lsn, req->size, req->operation, req->begin_time, req->response_time, latency);
+                fflush(ssd->outfile_io_write);
+            } else {
+                fprintf(ssd->outfile_io_read,"%16lld %10d %6d %2d %16lld %16lld %10lld\n",req->time,req->lsn, req->size, req->operation, req->begin_time, req->response_time, latency);
+                fflush(ssd->outfile_io_read);
+            }
 
             if(req->response_time-req->begin_time==0)
             {
@@ -669,6 +682,15 @@ void trace_output(struct ssd_info* ssd){
                 latency = end_time-req->time;
                 fprintf(ssd->outputfile,"%16lld %10d %6d %2d %16lld %16lld %10lld\n",req->time,req->lsn, req->size, req->operation, start_time, end_time, latency);
                 fflush(ssd->outputfile);
+                fprintf(ssd->outfile_io,"%16lld %10d %6d %2d %16lld %16lld %10lld\n",req->time,req->lsn, req->size, req->operation, start_time, end_time, latency);
+                fflush(ssd->outfile_io);
+                if (req->operation == WRITE) {
+                    fprintf(ssd->outfile_io_write,"%16lld %10d %6d %2d %16lld %16lld %10lld\n",req->time,req->lsn, req->size, req->operation, req->begin_time, req->response_time, latency);
+                    fflush(ssd->outfile_io_write);
+                } else {
+                    fprintf(ssd->outfile_io_read,"%16lld %10d %6d %2d %16lld %16lld %10lld\n",req->time,req->lsn, req->size, req->operation, req->begin_time, req->response_time, latency);
+                    fflush(ssd->outfile_io_read);
+                }
 
                 if(end_time-start_time==0)
                 {
@@ -1171,7 +1193,7 @@ void display_help()
     printf("  usage: ssd trace_file [options]\n");
     printf("    options:\n");
     printf("     -p=<filename> \t parameter filename (default: page.parameter)\n");
-    printf("     -o=<filename> \t output filename (default: ex.out)\n");
+    printf("     -o=<filename> \t output filename (default: raw/ex.out)\n");
     printf("     -s=<filename> \t statistics output filename (default: statistic10.dat)\n\n");
 }
 

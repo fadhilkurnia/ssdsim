@@ -1,2 +1,6 @@
 .vscode
 processing/
+ssd
+*.0
+*~
+*.trace

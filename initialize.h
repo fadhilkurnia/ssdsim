@@ -198,13 +198,19 @@ struct ssd_info{
     char outputfilename[30];
     char statisticfilename[30];
     char statisticfilename2[30];
-    char outfile_gc[30];
-    char outfile_io[30];
+    char outfile_gc_name[30];
+    char outfile_io_name[30];
+    char outfile_io_write_name[30];
+    char outfile_io_read_name[30];
 
     FILE * outputfile;
     FILE * tracefile;
     FILE * statisticfile;
     FILE * statisticfile2;
+    FILE * outfile_gc;
+    FILE * outfile_io;
+    FILE * outfile_io_write;
+    FILE * outfile_io_read;
 
     struct parameter_value *parameter;   //SSD参数因子
     struct dram_info *dram;
