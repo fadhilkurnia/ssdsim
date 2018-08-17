@@ -194,7 +194,7 @@ struct ssd_info{
     unsigned int update_read_count;      //记录因为更新操作导致的额外读出操作
 
     char parameterfilename[30];
-    char tracefilename[30];
+    char tracefilename[50];
     char outputfilename[30];
     char statisticfilename[30];
     char statisticfilename2[30];
