@@ -75,33 +75,6 @@ struct ssd_info *initiation(struct ssd_info *ssd)
     struct parameter_value *parameters;
     FILE *fp=NULL;
 
-    /*printf("input parameter file name:");
-      gets(ssd->parameterfilename);
-      strcpy_s(ssd->parameterfilename,16,"page.parameters");
-
-      printf("\ninput trace file name:");
-      gets(ssd->tracefilename);
-      strcpy_s(ssd->tracefilename,25,"Exchange.ascii");
-
-      printf("\ninput output file name:");
-      gets(ssd->outputfilename);
-      strcpy_s(ssd->outputfilename,7,"ex.out");
-
-      printf("\ninput statistic file name:");
-      gets(ssd->statisticfilename);
-      strcpy_s(ssd->statisticfilename,16,"statistic10.dat");
-
-      strcpy_s(ssd->statisticfilename2 ,16,"statistic2.dat");*/
-
-    /*
-    strncpy(ssd->parameterfilename,"page.parameters",16);
-    //strncpy(ssd->tracefilename,"example.ascii",25);
-    printf("\ninput trace file name:");
-    scanf("%s",ssd->tracefilename);
-    strncpy(ssd->outputfilename,"ex.out",7);
-    strncpy(ssd->statisticfilename,"statistic10.dat",16);
-    strncpy(ssd->statisticfilename2,"statistic2.dat",15);*/
-
     //导入ssd的配置文件
     parameters=load_parameters(ssd->parameterfilename);
     ssd->parameter=parameters;
@@ -120,8 +93,6 @@ struct ssd_info *initiation(struct ssd_info *ssd)
     memset(ssd->channel_head,0,ssd->parameter->channel_number * sizeof(struct channel_info));
     initialize_channels(ssd );
 
-
-    printf("\n");
     ssd->outputfile=fopen(ssd->outputfilename,"w");
     if(ssd->outputfile==NULL)
     {
@@ -129,14 +100,12 @@ struct ssd_info *initiation(struct ssd_info *ssd)
         return NULL;
     }
 
-    printf("\n");
     ssd->statisticfile=fopen(ssd->statisticfilename,"w");
     if(ssd->statisticfile==NULL)
     {
         printf("the statistic file can't open\n");
         return NULL;
     }
-    printf("\n");
 
     ssd->statisticfile2=fopen(ssd->statisticfilename2,"w");
     if(ssd->statisticfile2==NULL)
@@ -144,7 +113,6 @@ struct ssd_info *initiation(struct ssd_info *ssd)
         printf("the statistic2 file can't open\n");
         return NULL;
     }
-    printf("\n");
 
     ssd->outfile_gc=fopen(ssd->outfile_gc_name,"w");
     if(ssd->outfile_gc==NULL)
@@ -152,7 +120,6 @@ struct ssd_info *initiation(struct ssd_info *ssd)
         printf("the outfile_gc file can't open\n");
         return NULL;
     }
-    printf("\n");
 
     ssd->outfile_io=fopen(ssd->outfile_io_name,"w");
     if(ssd->outfile_io==NULL)
@@ -160,7 +127,6 @@ struct ssd_info *initiation(struct ssd_info *ssd)
         printf("the outfile_io file can't open\n");
         return NULL;
     }
-    printf("\n");
 
     ssd->outfile_io_write=fopen(ssd->outfile_io_write_name,"w");
     if(ssd->outfile_io_write==NULL)
@@ -168,7 +134,6 @@ struct ssd_info *initiation(struct ssd_info *ssd)
         printf("the outfile_io_write file can't open\n");
         return NULL;
     }
-    printf("\n");
 
     ssd->outfile_io_read=fopen(ssd->outfile_io_read_name,"w");
     if(ssd->outfile_io_read==NULL)
@@ -176,7 +141,6 @@ struct ssd_info *initiation(struct ssd_info *ssd)
         printf("the outfile_io_read file can't open\n");
         return NULL;
     }
-    printf("\n");
 
 
     fprintf(ssd->outputfile,"parameter file: %s\n",ssd->parameterfilename); 
