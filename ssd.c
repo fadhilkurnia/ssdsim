@@ -42,6 +42,9 @@ struct ssd_info *parse_args(struct ssd_info *ssd, int argc, char *argv[])
 {
     int i;
     char *opt;
+    char current_time[30];
+    char logdir[30];
+    char logdirname[60];
 
     if (argc < 2) {
         display_help();
@@ -50,14 +53,33 @@ struct ssd_info *parse_args(struct ssd_info *ssd, int argc, char *argv[])
     }
 
     // Assign default value
+    // prepare log directory
+    get_current_time(&current_time);
+    strcpy(logdir, "raw/");
+    strcat(logdir, current_time);
+    if (0 != mkdir(logdir,0777)) {
+        printf("When executing: mkdir(\"%s\")\n", logdir);
+        perror("mkdir");
+        exit(1);
+    }
+    strcat(logdir, "/");
+
+    // Assign default value
     strncpy(ssd->parameterfilename,"page.parameters",16);
-    strncpy(ssd->outputfilename,"raw/ex.out",11);
-    strncpy(ssd->statisticfilename,"raw/statistic10.dat",20);
-    strncpy(ssd->statisticfilename2,"raw/statistic2.dat",19);
-    strncpy(ssd->outfile_io_name, "raw/io.dat", 11);
-    strncpy(ssd->outfile_io_write_name, "raw/io_write.dat", 17);
-    strncpy(ssd->outfile_io_read_name, "raw/io_read.dat", 16);
-    strncpy(ssd->outfile_gc_name, "raw/gc.dat", 11);
+    strcpy(logdirname, logdir); strcat(logdirname, "ex.out");
+    strcpy(ssd->outputfilename, logdirname);
+    strcpy(logdirname, logdir); strcat(logdirname, "statistic10.dat");
+    strcpy(ssd->statisticfilename, logdirname);
+    strcpy(logdirname, logdir); strcat(logdirname, "statistic2.dat");
+    strcpy(ssd->statisticfilename2, logdirname);
+    strcpy(logdirname, logdir); strcat(logdirname, "io.dat");
+    strcpy(ssd->outfile_io_name, logdirname);
+    strcpy(logdirname, logdir); strcat(logdirname, "io_write.dat");
+    strcpy(ssd->outfile_io_write_name, logdirname);
+    strcpy(logdirname, logdir); strcat(logdirname, "io_read.dat");
+    strcpy(ssd->outfile_io_read_name, logdirname);
+    strcpy(logdirname, logdir); strcat(logdirname, "gc.dat");
+    strcpy(ssd->outfile_gc_name, logdirname);
 
     // Read filename from program option parameter
     for(i = 1; i < argc; i++) {
@@ -1226,4 +1248,15 @@ void close_file(struct ssd_info *ssd)
     if (ssd->outputfile) fclose(ssd->outputfile);
     if (ssd->statisticfile) fclose(ssd->statisticfile);
     if (ssd->statisticfile2) fclose(ssd->statisticfile2);
+}
+
+// Get current time in string for log directory name
+void get_current_time(char *current_time) {
+    time_t timer;
+    struct tm* tm_info;
+
+    time(&timer);
+    tm_info = localtime(&timer);
+
+    strftime(current_time, 26, "%Y-%m-%d_%H:%M:%S", tm_info);
 }

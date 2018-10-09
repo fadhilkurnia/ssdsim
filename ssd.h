@@ -43,6 +43,8 @@ struct ssd_info *no_buffer_distribute(struct ssd_info *);
 struct ssd_info *parse_args(struct ssd_info *, int, char *[]);
 void close_file(struct ssd_info *);
 
+void get_current_time(char *current_time);
+
 /********************************************
 * Function to display info and help
 * Added by Fadhil Imam (fadhilimamk@gmail.com) 
