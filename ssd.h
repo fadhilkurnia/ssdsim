@@ -41,7 +41,7 @@ struct ssd_info *make_aged(struct ssd_info *);
 struct ssd_info *no_buffer_distribute(struct ssd_info *);
 
 struct ssd_info *parse_args(struct ssd_info *, int, char *[]);
-
+void close_file(struct ssd_info *);
 
 /********************************************
 * Function to display info and help
