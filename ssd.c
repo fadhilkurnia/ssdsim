@@ -1258,5 +1258,5 @@ void get_current_time(char *current_time) {
     time(&timer);
     tm_info = localtime(&timer);
 
-    strftime(current_time, 26, "%Y-%m-%d_%H:%M:%S", tm_info);
+    strftime(current_time, 26, "%Y%m%d_%H%M%S", tm_info);
 }

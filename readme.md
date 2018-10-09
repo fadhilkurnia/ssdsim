@@ -38,11 +38,11 @@ $ mv config/1channel.conf page.parameters
 $ ./ssd your_trace_file.trace
 ```
 
-3) Your simulation statistics and log will be created at raw/`timestamp`/ directory (e.g raw/2018-10-10_11:00:00/). Each simulation will have its own directory to store all the statistics.
+3) Your simulation statistics and log will be created at raw/`timestamp`/ directory (e.g raw/20181010_110000/). Each simulation will have its own directory to store all the statistics.
 
 4) Generate the cdf graph using processing/cdf script. That script need your latency data from the simulation, for example:
 ```
-$ python processing/cdf raw/2018-10-10_11:00:00/io_read.dat
+$ python processing/cdf raw/20181010_110000/io_read.dat
 ```
 
 5) Your cdf graph can be seen at processing/cdf_eps/ directory
