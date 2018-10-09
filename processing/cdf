@@ -1,0 +1,41 @@
+#!/usr/local/bin/python
+import sys, argparse, os
+
+def main(argv):
+    parser = argparse.ArgumentParser(description='cumulative distribution function')
+    parser.add_argument('infile', type=argparse.FileType('r'), help="input")
+    args = parser.parse_args()
+
+    rootDir = os.path.dirname(os.path.realpath(__file__))
+    if not os.path.exists(rootDir + '/cdf_data'):
+        os.mkdir(rootDir + '/cdf_data')
+
+    raw_infile = args.infile.name.split('/')[1]
+    outfilename = rootDir + '/cdf_data/' + str(raw_infile) + '.dat'
+    outfile = open(outfilename, 'w')
+    
+    data = []
+    for line in args.infile:
+        latency = float(line.split()[6])
+        data.append(latency)
+
+    data.sort()
+    
+    for i, line in enumerate(data, 1):
+        outfile.write("%.3f\t%.6f\n"%(line, float(i)/len(data)))           
+            
+    args.infile.close()
+    outfile.close()
+
+    if not os.path.exists(rootDir + '/cdf_eps'):
+        os.mkdir(rootDir + '/cdf_eps')
+
+    data_filename = outfilename
+    eps_filename = rootDir + '/cdf_eps/' + raw_infile + '.eps'
+    command = 'gnuplot -p -c ' + rootDir + '/cdf.plt ' + data_filename + ' ' + eps_filename
+    # print(command)
+    os.system(command)
+    print('\tView the generated CDF graph at ' + eps_filename + '\n\n')
+    
+if __name__ == "__main__":
+    main(sys.argv[1:])

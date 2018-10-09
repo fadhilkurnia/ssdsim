@@ -8,7 +8,7 @@ SSDsim was created by Yang Hu in the end of 2009 and upgraded to version 2.0 aft
 $ make clean
 ```
 ```
-$ make new
+$ make all
 ```
 2)	Run the executable file (`ssd`), followed by trace file name, it's required.
 ```
@@ -23,3 +23,26 @@ $ ./ssd your_trace_file.trace
 
 
 2018-06-05
+
+___
+
+### How To Run Simulation and Generate CDF Graph
+
+1) Select SSD configuration that you want to use in your simulation. All predefined config can be seen at `config` directory. For example, to run SSD simulation with 1 channel, use this command:
+```
+$ mv config/1channel.conf page.parameters
+```
+
+2) Run the simulation and tracefile that you want to use, dont forget to compile SSDSim first.
+```
+$ ./ssd your_trace_file.trace
+```
+
+3) Your simulation statistics and log will be created at raw/`timestamp`/ directory (e.g raw/2018-10-10_11:00:00/). Each simulation will have its own directory to store all the statistics.
+
+4) Generate the cdf graph using processing/cdf script. That script need your latency data from the simulation, for example:
+```
+$ python processing/cdf raw/2018-10-10_11:00:00/io_read.dat
+```
+
+5) Your cdf graph can be seen at processing/cdf_eps/ directory
