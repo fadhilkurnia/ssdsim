@@ -1108,7 +1108,7 @@ pTree:树结构的指针
     if(!pTree)
         return 0;
 
-    while(pNode = pTree->pTreeHeader)
+    while((pNode = pTree->pTreeHeader))
     {
         avlTreeDel(pTree,pNode);
         AVL_TREENODE_FREE(pTree, pNode);
@@ -1152,7 +1152,7 @@ pTree:树结构的指针
     if(!pTree->count || !pTree->pTreeHeader)
         return 1;
 
-    while(pNode = pTree->pTreeHeader)
+    while((pNode = pTree->pTreeHeader))
     {
         avlTreeDel(pTree,pNode);
         AVL_TREENODE_FREE(pTree, pNode);

@@ -17,6 +17,7 @@ Hao Luo         2011/01/01        2.0           Change               luohao13568
  *****************************************************************************************************************************/
 
 #include "flash.h"
+#include "ssd.h"
 
 /**********************
  *这个函数只作用于写请求
@@ -1690,7 +1691,7 @@ struct ssd_info *dynamic_advanced_process(struct ssd_info *ssd,unsigned int chan
         }
     }
 
-    if ((ssd->parameter->allocation_scheme==0))                                           /*全动态分配，需要从ssd->subs_w_head上选取等待服务的子请求*/
+    if (ssd->parameter->allocation_scheme==0)                                           /*全动态分配，需要从ssd->subs_w_head上选取等待服务的子请求*/
     {
         if(ssd->parameter->dynamic_allocation==0)
         {
@@ -2364,6 +2365,7 @@ Status get_ppn_for_advanced_commands(struct ssd_info *ssd,unsigned int channel,u
             return ERROR;
         }
     }//elseb 静态分配的情况
+    return ERROR;
 }
 
 

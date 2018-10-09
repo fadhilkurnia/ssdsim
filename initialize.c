@@ -20,6 +20,7 @@ Hao Luo         2011/01/01        2.0           Change               luohao13568
 
 #include <stdlib.h>
 #include "initialize.h"
+#include "pagemap.h"
 
 #define FALSE		0
 #define TRUE		1
@@ -531,7 +532,7 @@ struct parameter_value *load_parameters(char parameter_file[30])
         }else if((res_eql=strcmp(buf,"active write threshold")) ==0){
             sscanf(buf + next_eql,"%d",&p->threshold_fixed_adjust); 
         }else if((res_eql=strcmp(buf,"threshold value")) ==0){
-            sscanf(buf + next_eql,"%f",&p->threshold_value); 
+            sscanf(buf + next_eql,"%d",&p->threshold_value); 
         }else if((res_eql=strcmp(buf,"active write")) ==0){
             sscanf(buf + next_eql,"%d",&p->active_write); 
         }else if((res_eql=strcmp(buf,"gc hard threshold")) ==0){

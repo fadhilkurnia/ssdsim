@@ -19,6 +19,8 @@ Hao Luo         2011/01/01        2.0           Change               luohao13568
 #define _CRTDBG_MAP_ALLOC
 
 #include "pagemap.h"
+#include "flash.h"
+#include "ssd.h"
 
 
 /************************************************
@@ -901,7 +903,7 @@ int gc_direct_erase(struct ssd_info *ssd,unsigned int channel,unsigned int chip,
         }
     }
 
-    if ((normal_erase_flag==TRUE))                              /*不是每个plane都有可以直接删除的block，只对当前plane进行普通的erase操作，或者只能执行普通命令*/
+    if (normal_erase_flag==TRUE)                              /*不是每个plane都有可以直接删除的block，只对当前plane进行普通的erase操作，或者只能执行普通命令*/
     {
         if (erase_planes(ssd,channel,chip,die,plane,NORMAL)==SUCCESS)
         {
@@ -1249,8 +1251,8 @@ int delete_gc_node(struct ssd_info *ssd, unsigned int channel,struct gc_operatio
     double free_page_percent = gc_node->x_free_percentage;
 
     if (end_time != start_time) {
-        printf("%d \t %d \t %d \t %d \t%6.2f %8ld %16ld %16ld %16ld\n", channel, gc_node->chip, gc_node->die, gc_node->plane, free_page_percent, moved_page, start_time, end_time, end_time-start_time);
-        fprintf(ssd->outfile_gc, "%d \t %d \t %d \t %d \t%6.2f %8ld %16ld %16ld %16ld\n", channel, gc_node->chip, gc_node->die, gc_node->plane, free_page_percent, moved_page, start_time, end_time, end_time-start_time);
+        printf("%d \t %d \t %d \t %d \t%6.2f %8u %16lld %16lld %16lld\n", channel, gc_node->chip, gc_node->die, gc_node->plane, free_page_percent, moved_page, start_time, end_time, end_time-start_time);
+        fprintf(ssd->outfile_gc, "%d \t %d \t %d \t %d \t%6.2f %8u %16lld %16lld %16lld\n", channel, gc_node->chip, gc_node->die, gc_node->plane, free_page_percent, moved_page, start_time, end_time, end_time-start_time);
         fflush(ssd->outfile_gc);
         ssd->num_gc++;
     }
