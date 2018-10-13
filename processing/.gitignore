@@ -1,3 +1,4 @@
-cdf_data
-cdf_eps
+*
 !.gitignore
+!cdf
+!cdf.plt
