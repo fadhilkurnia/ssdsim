@@ -46,3 +46,15 @@ $ python processing/cdf raw/20181010_110000/io_read.dat
 ```
 
 5) Your cdf graph can be seen at processing/cdf_eps/ directory
+
+## Run a Simulation of SSD
+ tbd.
+
+## Processing log generated from simulation
+### Generate read/write CDF graph
+ tbd.
+
+### Generate gc graph
+ ```
+ ython processing/gc_graph -preprocess processing/gc_graph_input/gc.dat processing/gc_graph_input/
+ ```

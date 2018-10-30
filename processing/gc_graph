@@ -1,5 +1,7 @@
 #!/usr/local/bin/python
-import sys, argparse, os, glob, matplotlib
+import sys, argparse, os, glob
+import numpy as np
+import matplotlib.pyplot as plt
 
 # Hasilkan graf GC berdasarkan semua file yang ada dalam directory gc_graph_input
 # fil input berformat .dat, dalam setiap file input merupakan log dari GC
@@ -16,7 +18,6 @@ def main(argv):
     else:
         generate_graph(argv)
 
-    return 0
 
 # break a gc logfile into multiple logfiles, so a logfile only contain
 # gc log for certain channel
@@ -46,10 +47,16 @@ def preprocess_logfile(infile, outdir):
 
 # generate the graph from all logfiles in log_directory
 def generate_graph(argv):
-    # optional args: log_directory, graph_title, start_time, end_time)
+    # optional args: graph_title, start_time, end_time)
 
     parser = argparse.ArgumentParser()
-    parser.add_argument('log_directory')
+    parser.add_argument('--title', type=str, help='Title of the graph')
+    parser.add_argument('--min', type=long, help='Lower bound of time in ms that want to be shown in the graph')
+    parser.add_argument('--max', type=long, help='Upper bound of time in ms that want to be shown in the graph')
+    args = parser.parse_args()
+
+    if args.title is None:
+        args.title = "Record of GC Processes during SSD Simulation"
 
     # read all file in input directory
     log_files = glob.glob(INPUT_DIR + '*.dat')
@@ -57,9 +64,55 @@ def generate_graph(argv):
     if len(log_files) == 0 :
         raise ValueError("ERROR: Whether input directory doesn't exist or empty!")
 
-    # creating the graph
+    # analyzing the GCs, find the min and the max time
+    min_time = None
+    max_time = 0
+    for filename in log_files:
+        data = np.loadtxt(filename)
+        for gc in data:
+            start_time = long(gc[6]/1000000)
+            end_time = long(gc[7]/1000000)
+
+            if min_time is None or min_time > start_time:
+                min_time = start_time
+            if max_time < end_time:
+                max_time = end_time
+
+    print "min time ", min_time, " ms"
+    print "max time ", max_time, " ms"
+    if args.min is None or args.min < min_time:
+        args.min = min_time
+    if args.max is None or args.max > max_time:
+        args.max = max_time
     
-    return 0
+    # preparing ytics label
+    yticks_label = {}
+    for filename in log_files:
+        short_filename = filename.split('/')[-1]
+        short_filename = short_filename[:-4] # remove .dat
+        yticks_label[filename] = short_filename
+
+    # creating the graph
+    fig = plt.figure()
+    plt.grid()
+    plt.title(args.title)
+    plt.xlabel("time (ms)")
+    for filename, short_filename in yticks_label.items():
+        _, _, _, _, _, _, s_gc, f_gc, _ = np.loadtxt(filename, unpack=True)
+        s_gc = s_gc / 1000000
+        f_gc = f_gc / 1000000
+        yticks = [short_filename] * len(s_gc)
+        plt.hlines(yticks, s_gc, f_gc, colors="red", lw=20)
+    plt.xlim(args.min, args.max)
+
+    # displaying graph
+    print "\n"
+    plt.draw()
+    plt.pause(1)
+    raw_input("<Hit Enter To Close>")
+    plt.close(fig)
+
+    print "Finish generating graph"
 
 if __name__ == "__main__":
     main(sys.argv[1:])
