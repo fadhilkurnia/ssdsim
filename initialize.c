@@ -370,18 +370,18 @@ struct parameter_value *load_parameters(char parameter_file[30])
         printf("the file parameter_file error!\n");	
         return p;
     }
-    fp1=fopen("raw/parameters_name.txt","w");
-    if(fp1==NULL)
-    {	
-        printf("the file parameter_name error!\n");	
-        return p;
-    }
-    fp2=fopen("raw/parameters_value.txt","w");
-    if(fp2==NULL)
-    {	
-        printf("the file parameter_value error!\n");	
-        return p;
-    }
+    // fp1=fopen("raw/parameters_name.txt","w");
+    // if(fp1==NULL)
+    // {	
+    //     printf("the file parameter_name error!\n");	
+    //     return p;
+    // }
+    // fp2=fopen("raw/parameters_value.txt","w");
+    // if(fp2==NULL)
+    // {	
+    //     printf("the file parameter_value error!\n");	
+    //     return p;
+    // }
 
 
 

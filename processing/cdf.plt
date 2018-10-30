@@ -2,7 +2,7 @@ set term postscript eps color 20
 set output ARG2
 set title "SSD IO Read Latency CDF Graph"
 set xlabel "Latency (ms)"
-set yrange [0.95 : 1]
+set yrange [0.93 : 1]
 set ylabel "CDF (Percentile)"
 # set xrange [-1 : 80]
 # set xtics 20
