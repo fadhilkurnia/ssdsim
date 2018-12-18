@@ -571,8 +571,8 @@ struct parameter_value *load_parameters(char parameter_file[30])
 
     }
     fclose(fp);
-    fclose(fp1);
-    fclose(fp2);
+//    fclose(fp1);
+//    fclose(fp2);
 
     return p;
 }
