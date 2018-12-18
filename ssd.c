@@ -94,9 +94,13 @@ struct ssd_info *parse_args(struct ssd_info *ssd, int argc, char *argv[])
             strcpy(ssd->parameterfilename, argv[i]+3);
             printf("ssd->parameterfilename %s \n", ssd->parameterfilename);
         } else if (strcmp(opt, "-o=") == 0) {
-            strcpy(ssd->outputfilename, argv[i]+3);
+            strcpy(logdirname, logdir); strcat(logdirname, argv[i]+3);
+            strcpy(ssd->outputfilename, logdirname);
+            printf("ssd->outputfilename %s \n", ssd->outputfilename);
         } else if (strcmp(opt, "-s=") == 0) {
-            strcpy(ssd->statisticfilename, argv[i]+3);
+            strcpy(logdirname, logdir); strcat(logdirname, argv[i]+3);
+            strcpy(ssd->statisticfilename, logdirname);
+            printf("ssd->statisticfilename %s \n", ssd->statisticfilename);
         }
     }
 
