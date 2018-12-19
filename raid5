@@ -13,7 +13,7 @@ IO_READ = 1
 IO_WRITE = 0
 OUT_TRACEFILE_DIR = 'tracefile/'
 OUT_RAID_LOG_DIR = 'raw/'
-RAID_SEGMENT_SIZE = 40960
+RAID_SEGMENT_SIZE = 65536
 
 # python raid <num_disk> <tracefile>
 def main(argv):
@@ -24,26 +24,28 @@ def main(argv):
     ndisk = int(argv[0])
     tracefilename = argv[1]
 
+    print("preparing tracefiles")
     raid_tracefiles_location = breakTracefile(tracefilename, ndisk, RAID_SEGMENT_SIZE)
-    print(raid_tracefiles_location)
+
+    print("runing simulation")
     runRAID(raid_tracefiles_location)
 
     return
-
 
 # 
 def breakTracefile(infile, ndisk, segment_size):
     firstline = [True] * ndisk
     outtraces = []
+    outtracesname = []
 
-    crt_timestamp = datetime.datetime.now()
-    timestamp_dir = crt_timestamp.strftime("%Y%m%d_%H%M%S/")
+    timestamp_dir = getCurrentTimestamp() + "/"
     if not os.path.exists(OUT_TRACEFILE_DIR+timestamp_dir):
         os.makedirs(OUT_TRACEFILE_DIR+timestamp_dir)
     
     for i in range (0,ndisk):
-        outfile = open(OUT_TRACEFILE_DIR + timestamp_dir + infile.split("/")[-1] + "-raid5-" + str(i) + ".trace", "w")
-        outtraces.append(outfile)
+        outfilename =  OUT_TRACEFILE_DIR + timestamp_dir + infile.split("/")[-1] + "-raid5-" + str(i) + ".trace"
+        outtracesname.append(outfilename)
+        outtraces.append(open(outfilename, "w"))
 
     # some helper function
     def writeTrace(id, trace):
@@ -102,21 +104,21 @@ def breakTracefile(infile, ndisk, segment_size):
             blkcount = blkcount - current_blkcount
 
             # write parity for last stripe
-            if operation == 0 and blkcount <= 0 :
-                writeTrace(current_stripe_id%ndisk, "{} {} {} {} {}".format(time, devno, min_blkno_segment, max_blkcount_segment, 1))
-                writeTrace(current_stripe_id%ndisk, "{} {} {} {} {}".format(time, devno, min_blkno_segment, max_blkcount_segment, operation))
+            if operation == IO_WRITE and blkcount <= 0 :
+                writeTrace(current_stripe_id%ndisk, "{} {} {} {} {}".format(time, devno, min_blkno_segment, max_blkcount_segment, IO_READ))
+                writeTrace(current_stripe_id%ndisk, "{} {} {} {} {}".format(time, devno, min_blkno_segment, max_blkcount_segment, IO_WRITE))
                 break
 
             # move to next segment and skip parity segment
             while True:
-                
+
                 current_disk_id = current_disk_id + 1 # move to next disk
 
                 if current_disk_id == ndisk: # current disk is rightmost disk of current stripe, so move to next stripe
 
                     if operation == 0: # write parity before change to next stripe (only for write operation)
-                        writeTrace(current_stripe_id%ndisk, "{} {} {} {} {}".format(time, devno, min_blkno_segment, max_blkcount_segment, 1))
-                        writeTrace(current_stripe_id%ndisk, "{} {} {} {} {}".format(time, devno, min_blkno_segment, max_blkcount_segment, operation))
+                        writeTrace(current_stripe_id%ndisk, "{} {} {} {} {}".format(time, devno, min_blkno_segment, max_blkcount_segment, IO_READ))
+                        writeTrace(current_stripe_id%ndisk, "{} {} {} {} {}".format(time, devno, min_blkno_segment, max_blkcount_segment, IO_WRITE))
 
                     current_disk_id = 0 # start over from disk_0
                     current_stripe_id = current_stripe_id + 1 # move to next stripe
@@ -129,13 +131,20 @@ def breakTracefile(infile, ndisk, segment_size):
 
             next_segment_blk = (current_stripe_id+1)*blk_per_segment
 
-    return outtraces
+    return outtracesname
 
 def runRAID(tracefiles_loc):
-    # ./ssd tracefile_loc[i]
+    raidlog = open("raw/raid_"+getCurrentTimestamp()+".log", "w")
 
-    # generate log
+    for intracefile in tracefiles_loc:
+        os.system("./ssd "+intracefile)
+        raidlog.writelines(intracefile)
+
     return
+
+def getCurrentTimestamp():
+    crt_timestamp = datetime.datetime.now()
+    return crt_timestamp.strftime("%Y%m%d_%H%M%S")
 
 if __name__ == "__main__":
     main(sys.argv[1:])

@@ -193,15 +193,15 @@ struct ssd_info{
     unsigned int request_queue_length;
     unsigned int update_read_count;      //记录因为更新操作导致的额外读出操作
 
-    char parameterfilename[60];
-    char tracefilename[50];
-    char outputfilename[60];
-    char statisticfilename[60];
-    char statisticfilename2[60];
-    char outfile_gc_name[60];
-    char outfile_io_name[60];
-    char outfile_io_write_name[60];
-    char outfile_io_read_name[60];
+    char parameterfilename[80];
+    char tracefilename[80];
+    char outputfilename[80];
+    char statisticfilename[80];
+    char statisticfilename2[80];
+    char outfile_gc_name[80];
+    char outfile_io_name[80];
+    char outfile_io_write_name[80];
+    char outfile_io_read_name[80];
 
     FILE * outputfile;
     FILE * tracefile;
