@@ -81,8 +81,18 @@ python processing/cdf raw/20181010_110000/io_read.dat
 ```
 Your cdf graph can be seen at processing/cdf_eps/ directory. You can change the y or x range of the graph from `cdf.plt` file, the title of the graph also can be changed there.
 
+Example of generated graph:
+![CDF Graph Example](img/cdf_example.png)
+
 ### Generate GC Timeline Graph
 Work in progress ...
+
+#### GCs In a single SSD
+x-axis indicate the channel of the ssd
+
+
+#### GCs In RAID Simulation
+x-axis indicate the ssd in RAID configuration
 
 GC timeline graph is gantt-chart-like graph to visualize all the GC happen from RAID simulation. You can generate the gc timeline graph using `processing/gc_graph` script. That script all the SSD gc data from RAID simulation, the script infer the location of all the gc logfile from RAID simulation generated logfile. for example:
 
@@ -95,9 +105,11 @@ expecting:
 python processing/gc_graph raid_20181219_183533.log
 ```
 
+Example of generated graph:
+<!-- ![CDF Graph Example](img/gc_timeline_graph_example.png) -->
+
 ### Generate GC Collision Graph
 To Be Defined ...
-
 
 ___
 Last update: 2018-12-19
