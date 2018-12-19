@@ -137,8 +137,12 @@ def runRAID(tracefiles_loc):
     raidlog = open("raw/raid_"+getCurrentTimestamp()+".log", "w")
 
     for intracefile in tracefiles_loc:
-        os.system("./ssd "+intracefile)
-        raidlog.writelines(intracefile)
+        command = "./ssd "+intracefile
+        print(command)
+        timestamp = getCurrentTimestamp()
+
+        os.system(command)
+        raidlog.writelines(OUT_RAID_LOG_DIR + timestamp + "/" + "\n")
 
     return
 
