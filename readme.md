@@ -77,12 +77,29 @@ You can process the statistic generated from each simulation. Here are some proc
 ### Generate Read or Write CDF Graph
 Generate the cdf graph using `processing/cdf` script. That script need your latency data from the simulation, for example:
 ```
-python processing/cdf raw/20181010_110000/io_read.dat
+python3 processing/cdf <generated_io_log>
+
+example:
+python3 processing/cdf raw/20181010_110000/io_read.dat
 ```
 Your cdf graph can be seen at processing/cdf_eps/ directory. You can change the y or x range of the graph from `cdf.plt` file, the title of the graph also can be changed there.
 
 Example of generated graph:
+
 ![CDF Graph Example](img/cdf_example.png)
+
+### Generate GC Collision Graph
+Using RAID simulation statistics. We can calculate, for each read IO request, how many GC it meets in the SSD. For example 0GC means that request doesn't meet any GC, and 1GC means that request meets 1 GC in one of the SSD in the RAID configuration. To generate this graph, run this command:
+```
+python processing/gc_collision <generated_raid_log>
+
+example:
+python processing/gc_collision raw/raid_20181219_183533.log
+```
+
+Example of the generated graph:
+
+![GC Collision Graph Example](img/gc_collision_example.png)
 
 ### Generate GC Timeline Graph
 Work in progress ...
@@ -107,9 +124,6 @@ python processing/gc_graph raid_20181219_183533.log
 
 Example of generated graph:
 <!-- ![CDF Graph Example](img/gc_timeline_graph_example.png) -->
-
-### Generate GC Collision Graph
-To Be Defined ...
 
 ___
 Last update: 2018-12-19

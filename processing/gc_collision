@@ -6,6 +6,7 @@ from matplotlib import pyplot as plt
 
 # need raid log filename
 # detect collision by comparing gc.dat and io.dat
+# tested with python 2.7
 def main(argv):
     if len(argv) < 1:
         raise ValueError("Need raid log filename, it can be obtained after runing raid simulation with raid5 script")
@@ -37,9 +38,9 @@ def main(argv):
         iofile = open(iolog_filename[idx], "r")
         for line in gcfile:
             gc_token = line.split()
-            gc_start = int(gc_token[6])
-            gc_time = int(gc_token[8])
-            gc_end = int(gc_start+gc_time)
+            gc_start = long(gc_token[6])
+            gc_time = long(gc_token[8])
+            gc_end = long(gc_start+gc_time)
 
             while True:
                 io_line = iofile.readline()
@@ -48,9 +49,9 @@ def main(argv):
                     break
 
                 io_token = io_line.split()
-                io_start = int(io_token[0])
-                io_time = int(io_token[6])
-                io_end = int(io_start+io_time)
+                io_start = long(io_token[0])
+                io_time = long(io_token[6])
+                io_end = long(io_start+io_time)
 
                 if io_start not in iodata:
                     iodata[io_start] = 0
