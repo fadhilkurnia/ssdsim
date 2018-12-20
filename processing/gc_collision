@@ -1,0 +1,98 @@
+#!/usr/bin/env python
+
+import sys
+import math
+from matplotlib import pyplot as plt
+
+# need raid log filename
+# detect collision by comparing gc.dat and io.dat
+def main(argv):
+    if len(argv) < 1:
+        raise ValueError("Need raid log filename, it can be obtained after runing raid simulation with raid5 script")
+
+    raidlog_filename = argv[0]
+    raidlog = open(raidlog_filename, "r")
+    
+    gclog_filename = []
+    iolog_filename = []
+
+    gclog_file = []
+    iolog_file = []
+
+    iodata = dict()
+
+    for line in raidlog:
+        line = line.rstrip()
+        gclog_filename.append(line + "gc.dat")
+        iolog_filename.append(line + "io_read.dat")
+        gclog_file.append(open(line + "gc.dat", "r"))
+        iolog_file.append(open(line + "io_read.dat", "r"))
+
+    ndisk = len(iolog_filename)
+    io_collision = [0] * ndisk
+
+    for idx, gcfile in enumerate(gclog_file):
+        print("finding collision on disk " + str(idx))
+
+        iofile = open(iolog_filename[idx], "r")
+        for line in gcfile:
+            gc_token = line.split()
+            gc_start = int(gc_token[6])
+            gc_time = int(gc_token[8])
+            gc_end = int(gc_start+gc_time)
+
+            while True:
+                io_line = iofile.readline()
+
+                if io_line == "": # eof
+                    break
+
+                io_token = io_line.split()
+                io_start = int(io_token[0])
+                io_time = int(io_token[6])
+                io_end = int(io_start+io_time)
+
+                if io_start not in iodata:
+                    iodata[io_start] = 0
+                
+                if io_start >= gc_start and io_end <= gc_end:
+                    iodata[io_start] = iodata[io_start] + 1
+
+                if io_start > gc_end:
+                    break
+
+    # Plot the graph
+    nrequests = len(iodata)
+    for req in iodata:
+        io_collision[iodata[req]] = io_collision[iodata[req]] + 1
+
+    xlabel = []
+    for x in range(len(io_collision)):
+        xlabel.append(str(x) + 'GC')
+
+    plt.bar(xlabel, io_collision)
+    plt.suptitle("Number of GC Collision Per Read IO")
+    plt.title("RAID5 SSD with %d disks" % ndisk)
+    plt.yscale('log')
+    plt.grid(True)
+    plt.ylabel("# GC (logaritmic scale)")
+    plt.xlabel("# GC Collision")
+
+    print("\n STATISTIC:")
+    print("total request: " + str(nrequests))
+    for i, v in enumerate(io_collision):
+
+        percentage = float(v)/float(nrequests)*float(100)
+        print("%s:(%.3f%%) \t %d" % (xlabel[i], percentage, v))
+
+        ypos = v
+        if ypos < 22:
+            ypos = 22
+        plt.text(i, ypos, str(v), color='black', ha='center')
+
+    plt.show()
+
+    return
+
+if __name__ == "__main__":
+    main(sys.argv[1:])
