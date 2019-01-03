@@ -368,6 +368,7 @@ struct request{
 
     int distri_flag;		           // indicate whether this request has been distributed already
     int meet_gc_flag;                  // indicate whether this request is blocked by GC process
+    int64_t meet_gc_remaining_time;
 
     int64_t begin_time;
     int64_t response_time;

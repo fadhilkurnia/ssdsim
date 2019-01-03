@@ -1251,7 +1251,7 @@ int delete_gc_node(struct ssd_info *ssd, unsigned int channel,struct gc_operatio
     double free_page_percent = gc_node->x_free_percentage;
 
     if (end_time != start_time) {
-        // printf("%d \t %d \t %d \t %d \t%6.2f %8u %16lld %16lld %16lld\n", channel, gc_node->chip, gc_node->die, gc_node->plane, free_page_percent, moved_page, start_time, end_time, end_time-start_time);
+        printf("%d \t %d \t %d \t %d \t%6.2f %8u %16lld %16lld %16lld\n", channel, gc_node->chip, gc_node->die, gc_node->plane, free_page_percent, moved_page, start_time, end_time, end_time-start_time);
         fprintf(ssd->outfile_gc, "%d \t %d \t %d \t %d \t%6.2f %8u %16lld %16lld %16lld\n", channel, gc_node->chip, gc_node->die, gc_node->plane, free_page_percent, moved_page, start_time, end_time, end_time-start_time);
         fflush(ssd->outfile_gc);
         ssd->num_gc++;

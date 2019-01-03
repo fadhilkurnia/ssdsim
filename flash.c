@@ -707,6 +707,7 @@ struct sub_request * creat_sub_request(struct ssd_info * ssd,unsigned int lpn,in
         return NULL;
     }
 
+    // Added by Fadhil to mark every IO that meets GC, and record GC remaining time in the IO
     if (sub->location != NULL && 
         ssd->channel_head[sub->location->channel].next_state_predict_time != MAX_INT64 &&
         ssd->channel_head[sub->location->channel].next_state_predict_time != 0 &&
@@ -714,7 +715,9 @@ struct sub_request * creat_sub_request(struct ssd_info * ssd,unsigned int lpn,in
         sub->begin_time >= ssd->channel_head[sub->location->channel].current_time &&
         sub->begin_time <= ssd->channel_head[sub->location->channel].next_state_predict_time) {
         req->meet_gc_flag = 1;
-        printf("Nabrak GC cuy! %d %lld\n", sub->operation, ssd->channel_head[sub->location->channel].next_state_predict_time - sub->begin_time);
+        if (ssd->channel_head[sub->location->channel].next_state_predict_time - sub->begin_time > req->meet_gc_remaining_time) {
+            req->meet_gc_remaining_time = ssd->channel_head[sub->location->channel].next_state_predict_time - sub->begin_time;
+        }
     }
 
     return sub;
