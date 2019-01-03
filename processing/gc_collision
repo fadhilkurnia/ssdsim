@@ -56,7 +56,7 @@ def main(argv):
                 if io_start not in iodata:
                     iodata[io_start] = 0
                 
-                if io_start >= gc_start and io_end <= gc_end:
+                if io_start >= gc_start and io_end >= gc_end and iodata[io_start] < ndisk-1:
                     iodata[io_start] = iodata[io_start] + 1
 
                 if io_start > gc_end:

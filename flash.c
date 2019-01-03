@@ -20,7 +20,7 @@ Hao Luo         2011/01/01        2.0           Change               luohao13568
 #include "ssd.h"
 
 /**********************
- *这个函数只作用于写请求
+ *这个函数只作用于写请求 | This function only works on write requests.
  ***********************/
 Status allocate_location(struct ssd_info * ssd ,struct sub_request *sub_req)
 {
@@ -670,6 +670,7 @@ struct sub_request * creat_sub_request(struct ssd_info * ssd,unsigned int lpn,in
     }
     /*************************************************************************************
      *写请求的情况下，就需要利用到函数allocate_location(ssd ,sub)来处理静态分配和动态分配了
+     *In the case of a write request, you need to use the function allocate_location(ssd, sub) to handle static allocation and dynamic allocation.
      **************************************************************************************/
     else if(operation == WRITE)
     {
@@ -704,6 +705,16 @@ struct sub_request * creat_sub_request(struct ssd_info * ssd,unsigned int lpn,in
         sub=NULL;
         printf("\nERROR ! Unexpected command.\n");
         return NULL;
+    }
+
+    if (sub->location != NULL && 
+        ssd->channel_head[sub->location->channel].next_state_predict_time != MAX_INT64 &&
+        ssd->channel_head[sub->location->channel].next_state_predict_time != 0 &&
+        ssd->channel_head[sub->location->channel].current_state == CHANNEL_GC && 
+        sub->begin_time >= ssd->channel_head[sub->location->channel].current_time &&
+        sub->begin_time <= ssd->channel_head[sub->location->channel].next_state_predict_time) {
+        req->meet_gc_flag = 1;
+        printf("Nabrak GC cuy! %d %lld\n", sub->operation, ssd->channel_head[sub->location->channel].next_state_predict_time - sub->begin_time);
     }
 
     return sub;
@@ -1626,7 +1637,7 @@ struct ssd_info *process(struct ssd_info *ssd)
             sub=ssd->channel_head[i].subs_r_head;                                        /*先处理读请求*/
 
             // TODO: Fadhil, why this function change the flag into 1
-            services_2_r_wait(ssd,i,&flag,&chg_cur_time_flag);                           /*处理处于等待状态的读子请求*/
+            services_2_r_wait(ssd,i,&flag,&chg_cur_time_flag);                           /*处理处于等待状态的读子请求 | Handling read child requests in wait state*/
 
             if((flag==0)&&(ssd->channel_head[i].subs_r_head!=NULL))                      /*if there are no new read request and data is ready in some dies, send these data to controller and response this request*/		
             {

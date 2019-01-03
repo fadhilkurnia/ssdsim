@@ -367,6 +367,7 @@ struct request{
     unsigned int complete_lsn_count;   //record the count of lsn served by buffer
 
     int distri_flag;		           // indicate whether this request has been distributed already
+    int meet_gc_flag;                  // indicate whether this request is blocked by GC process
 
     int64_t begin_time;
     int64_t response_time;

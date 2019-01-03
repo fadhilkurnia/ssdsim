@@ -421,7 +421,8 @@ struct ssd_info *buffer_management(struct ssd_info *ssd)
             }	
 
             index=(lpn-first_lpn)/(32/ssd->parameter->subpage_page); 			
-            new_request->need_distr_flag[index]=new_request->need_distr_flag[index]|(need_distb_flag<<(((lpn-first_lpn)%(32/ssd->parameter->subpage_page))*ssd->parameter->subpage_page));            lpn++;
+            new_request->need_distr_flag[index]=new_request->need_distr_flag[index]|(need_distb_flag<<(((lpn-first_lpn)%(32/ssd->parameter->subpage_page))*ssd->parameter->subpage_page));            
+            lpn++;
 
         }
     }  
@@ -539,6 +540,12 @@ struct ssd_info *distribute(struct ssd_info *ssd)
                      *这里的每一页的状态都存放在了 req->need_distr_flag中，也就是complt中，通过比较complt的
                      *每一项与full_page，就可以知道，这一页是否处理完成。如果没处理完成则通过creat_sub_request
                      函数创建子请求。
+
+                     Each bit of a 32-bit integer data represents a subpage, and 32/ssd->parameter->subpage_page indicates 
+                     how many pages there are. The state of each page here is stored in req->need_distr_flag, 
+                     that is, In complt, by comparing each item of complt with full_page, you can know whether 
+                     this page is processed or not. A subrequest is created by the creat_sub_request function 
+                     if it is not processed.
                      *************************************************************************************/
                     for(j=0; j<32/ssd->parameter->subpage_page; j++)
                     {	
@@ -1145,6 +1152,9 @@ struct ssd_info *make_aged(struct ssd_info *ssd)
 /*********************************************************************************************
  *no_buffer_distribute()函数是处理当ssd没有dram的时候，
  *这是读写请求就不必再需要在buffer里面寻找，直接利用creat_sub_request()函数创建子请求，再处理。
+ *The no_buffer_distribute() function is used when ssd has no dram. This is a read/write request. 
+ *You don't need to look in the buffer. You can use the creat_sub_request() function to create 
+ *a subrequest and then process it.
  *********************************************************************************************/
 struct ssd_info *no_buffer_distribute(struct ssd_info *ssd)
 {
