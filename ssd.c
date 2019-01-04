@@ -614,15 +614,15 @@ void trace_output(struct ssd_info* ssd){
         if(req->response_time != 0)
         {
             latency = req->response_time-req->time;
-            fprintf(ssd->outputfile,"%16lld %10d %6d %2d %16lld %16lld %10lld [%2d %10lld]\n",req->time,req->lsn, req->size, req->operation, req->begin_time, req->response_time, latency, req->meet_gc_flag, req->meet_gc_remaining_time);
+            fprintf(ssd->outputfile,"%16lld %10d %6d %2d %16lld %16lld %10lld %2d %10lld\n",req->time,req->lsn, req->size, req->operation, req->begin_time, req->response_time, latency, req->meet_gc_flag, req->meet_gc_remaining_time);
             fflush(ssd->outputfile);
-            fprintf(ssd->outfile_io,"%16lld %10d %6d %2d %16lld %16lld %10lld [%2d %10lld]\n",req->time,req->lsn, req->size, req->operation, req->begin_time, req->response_time, latency, req->meet_gc_flag, req->meet_gc_remaining_time);
+            fprintf(ssd->outfile_io,"%16lld %10d %6d %2d %16lld %16lld %10lld %2d %10lld\n",req->time,req->lsn, req->size, req->operation, req->begin_time, req->response_time, latency, req->meet_gc_flag, req->meet_gc_remaining_time);
             fflush(ssd->outfile_io);
             if (req->operation == WRITE) {
-                fprintf(ssd->outfile_io_write,"%16lld %10d %6d %2d %16lld %16lld %10lld [%2d %10lld]\n",req->time,req->lsn, req->size, req->operation, req->begin_time, req->response_time, latency, req->meet_gc_flag, req->meet_gc_remaining_time);
+                fprintf(ssd->outfile_io_write,"%16lld %10d %6d %2d %16lld %16lld %10lld %2d %10lld\n",req->time,req->lsn, req->size, req->operation, req->begin_time, req->response_time, latency, req->meet_gc_flag, req->meet_gc_remaining_time);
                 fflush(ssd->outfile_io_write);
             } else {
-                fprintf(ssd->outfile_io_read,"%16lld %10d %6d %2d %16lld %16lld %10lld [%2d %10lld]\n",req->time,req->lsn, req->size, req->operation, req->begin_time, req->response_time, latency, req->meet_gc_flag, req->meet_gc_remaining_time);
+                fprintf(ssd->outfile_io_read,"%16lld %10d %6d %2d %16lld %16lld %10lld %2d %10lld\n",req->time,req->lsn, req->size, req->operation, req->begin_time, req->response_time, latency, req->meet_gc_flag, req->meet_gc_remaining_time);
                 fflush(ssd->outfile_io_read);
             }
 
@@ -716,15 +716,15 @@ void trace_output(struct ssd_info* ssd){
             if (flag == 1)
             {		
                 latency = end_time-req->time;
-                fprintf(ssd->outputfile,"%16lld %10d %6d %2d %16lld %16lld %10lld [%2d %10lld]\n",req->time,req->lsn, req->size, req->operation, req->begin_time, req->response_time, latency, req->meet_gc_flag, req->meet_gc_remaining_time);
+                fprintf(ssd->outputfile,"%16lld %10d %6d %2d %16lld %16lld %10lld %2d %10lld\n",req->time,req->lsn, req->size, req->operation, req->begin_time, req->response_time, latency, req->meet_gc_flag, req->meet_gc_remaining_time);
                 fflush(ssd->outputfile);
-                fprintf(ssd->outfile_io,"%16lld %10d %6d %2d %16lld %16lld %10lld [%2d %10lld]\n",req->time,req->lsn, req->size, req->operation, req->begin_time, req->response_time, latency, req->meet_gc_flag, req->meet_gc_remaining_time);
+                fprintf(ssd->outfile_io,"%16lld %10d %6d %2d %16lld %16lld %10lld %2d %10lld\n",req->time,req->lsn, req->size, req->operation, req->begin_time, req->response_time, latency, req->meet_gc_flag, req->meet_gc_remaining_time);
                 fflush(ssd->outfile_io);
                 if (req->operation == WRITE) {
-                    fprintf(ssd->outfile_io_write,"%16lld %10d %6d %2d %16lld %16lld %10lld [%2d %10lld]\n",req->time,req->lsn, req->size, req->operation, req->begin_time, req->response_time, latency, req->meet_gc_flag, req->meet_gc_remaining_time);
+                    fprintf(ssd->outfile_io_write,"%16lld %10d %6d %2d %16lld %16lld %10lld %2d %10lld\n",req->time,req->lsn, req->size, req->operation, req->begin_time, req->response_time, latency, req->meet_gc_flag, req->meet_gc_remaining_time);
                     fflush(ssd->outfile_io_write);
                 } else {
-                    fprintf(ssd->outfile_io_read,"%16lld %10d %6d %2d %16lld %16lld %10lld [%2d %10lld]\n",req->time,req->lsn, req->size, req->operation, req->begin_time, req->response_time, latency, req->meet_gc_flag, req->meet_gc_remaining_time);
+                    fprintf(ssd->outfile_io_read,"%16lld %10d %6d %2d %16lld %16lld %10lld %2d %10lld\n",req->time,req->lsn, req->size, req->operation, req->begin_time, req->response_time, latency, req->meet_gc_flag, req->meet_gc_remaining_time);
                     fflush(ssd->outfile_io_read);
                 }
 
