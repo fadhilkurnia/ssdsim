@@ -88,6 +88,17 @@ Example of generated graph:
 
 ![CDF Graph Example](img/cdf_example.png)
 
+### Generate GC Remaining Time CDF Graph
+For every io, we also record the gc remaining time (`gcrt`) when the IO meets GC process, to generate the cdf graph use this command:
+```
+python3 processing/cdf <generated_io_log> -gcrt
+
+example:
+python3 processing/cdf raw/20181010_110000/io_read.dat -gcrt
+```
+Your cdf graph can be seen at processing/cdf_eps/ directory. You can change the y or x range of the graph from `cdf.plt` file, the title of the graph also can be changed there.
+![CDF Graph Example](img/gcrt_cdf_example.png)
+
 ### Generate GC Collision Graph
 Using RAID simulation statistics. We can calculate, for each read IO request, how many GC it meets in the SSD. For example 0GC means that request doesn't meet any GC, and 1GC means that request meets 1 GC in one of the SSD in the RAID configuration. To generate this graph, run this command:
 ```
