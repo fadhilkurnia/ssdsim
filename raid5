@@ -69,10 +69,10 @@ def breakTracefile(infile, ndisk, segment_size):
         operation = int(token[4])
 
         # calculating new starting blkno
-        target_stripe_id = blkno / (blk_per_segment * (ndisk-1))
+        target_stripe_id = int(blkno / (blk_per_segment * (ndisk-1)))
         blk_stripe_offset = (blkno + (blk_per_segment*target_stripe_id)) % blk_per_stripe
         parity_disk_id = target_stripe_id % ndisk
-        target_disk_id = blk_stripe_offset / blk_per_segment
+        target_disk_id = int(blk_stripe_offset / blk_per_segment)
         if parity_disk_id <= target_disk_id: # right shift 1 disk to jump over parity disk
             target_disk_id = target_disk_id + 1
         new_blkno = (target_stripe_id*blk_per_segment) + (blk_stripe_offset%blk_per_segment)
