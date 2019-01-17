@@ -1,6 +1,5 @@
 *
 !.gitignore
 !TPCC10K.trace
-!TPCC100K.trace
-!MSNFS1K.trace
-!DTRS1K.trace
+!MSNFS100M.trace
+!DTRS100M.trace

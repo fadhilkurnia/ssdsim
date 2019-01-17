@@ -13,7 +13,7 @@ IO_READ = 1
 IO_WRITE = 0
 OUT_TRACEFILE_DIR = 'tracefile/'
 OUT_RAID_LOG_DIR = 'raw/'
-RAID_SEGMENT_SIZE = 65536
+RAID_SEGMENT_SIZE = 40960
 
 # python raid <num_disk> <tracefile>
 def main(argv):
