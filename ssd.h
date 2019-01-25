@@ -40,6 +40,7 @@ void free_all_node(struct ssd_info *);
 struct ssd_info *make_aged(struct ssd_info *);
 struct ssd_info *no_buffer_distribute(struct ssd_info *);
 
+int isRaidSimulation(int, char *[]);
 struct ssd_info *parse_args(struct ssd_info *, int, char *[]);
 void close_file(struct ssd_info *);
 

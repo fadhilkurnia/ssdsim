@@ -1,8 +1,11 @@
 #include <sys/stat.h>
 #include <sys/types.h>
+#include <getopt.h>
 #include <stdlib.h>
+#include <unistd.h>
 #include <stdio.h>
 #include "ssd.h"
+#include "raid.h"
 
 int main(int argc, char *argv[]) 
 {
@@ -12,6 +15,13 @@ int main(int argc, char *argv[])
     u_int64_t latency;
 
     display_title();
+
+    int raid;
+    if ((raid = isRaidSimulation(argc, argv)) != -1) {
+        if (raid == 0) simulate_raid0(argc, argv);
+        if (raid == 5) simulate_raid5(argc, argv);
+        return 0;
+    }
     
     ssd=(struct ssd_info*)malloc(sizeof(struct ssd_info));
     alloc_assert(ssd,"ssd");
@@ -34,6 +44,25 @@ int main(int argc, char *argv[])
     printf("\nThe simulation is completed! \n");
 
     return 0;
+}
+
+// return type of raid, or -1 if not
+int isRaidSimulation(int argc, char *argv[]) {
+    int raidtype = -1;
+    static struct option long_options[] = {
+        {"raid0", no_argument, 0, '0'},
+        {"raid5", no_argument, 0, '5'}
+    };
+    int long_index = 0;
+    int opt = 0;
+    while ((opt = getopt_long_only(argc, argv,"", long_options, &long_index )) != -1) {
+        if (opt == '5') {
+            raidtype = 5;
+        } else if (opt == '0') {
+            raidtype = 0;
+        }
+    }
+    return raidtype;
 }
 
 /***********************************************************************
