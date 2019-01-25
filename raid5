@@ -55,7 +55,7 @@ def breakTracefile(infile, ndisk, segment_size):
             firstline[id] = False
         outtraces[id].write(trace)
 
-    blk_size = 1024 # or sector size in hdd (in bytes)
+    blk_size = 2048 # or sector size in hdd (in bytes)
     blk_per_segment = segment_size / blk_size
     blk_per_stripe = blk_per_segment * (ndisk - 1) # --- modf_1 --- ndisk -> (ndisk-1) (Sep.17 17:19)
 
@@ -63,7 +63,7 @@ def breakTracefile(infile, ndisk, segment_size):
     for line in intrace:
         token = line.split()
         time = int(token[0])
-        devno = token[1]
+        devno = int(token[1])
         blkno = int(token[2])
         blkcount = int(token[3])
         operation = int(token[4])
@@ -94,8 +94,8 @@ def breakTracefile(infile, ndisk, segment_size):
                 current_blkcount = next_segment_blk-current_blkno
 
             if operation == 0:
-                writeTrace(current_disk_id, "{} {} {} {} {}".format(time, devno, current_blkno, current_blkcount, 1))
-            writeTrace(current_disk_id, "{} {} {} {} {}".format(time, devno, current_blkno, current_blkcount, operation))
+                writeTrace(current_disk_id, "%ld %d %ld %d %d" % (time, devno, current_blkno, current_blkcount, 1))
+            writeTrace(current_disk_id, "%ld %d %ld %d %d" % (time, devno, current_blkno, current_blkcount, operation))
 
             max_blkcount_segment = 0 # --- add_3 --- (Sep.18 20:05)
             if max_blkcount_segment < current_blkcount: 
@@ -105,8 +105,8 @@ def breakTracefile(infile, ndisk, segment_size):
 
             # write parity for last stripe
             if operation == IO_WRITE and blkcount <= 0 :
-                writeTrace(current_stripe_id%ndisk, "{} {} {} {} {}".format(time, devno, min_blkno_segment, max_blkcount_segment, IO_READ))
-                writeTrace(current_stripe_id%ndisk, "{} {} {} {} {}".format(time, devno, min_blkno_segment, max_blkcount_segment, IO_WRITE))
+                writeTrace(current_stripe_id%ndisk, "%ld %d %ld %d %d" % (time, devno, min_blkno_segment, max_blkcount_segment, IO_READ))
+                writeTrace(current_stripe_id%ndisk, "%ld %d %ld %d %d" % (time, devno, min_blkno_segment, max_blkcount_segment, IO_WRITE))
                 break
 
             # move to next segment and skip parity segment
@@ -117,8 +117,8 @@ def breakTracefile(infile, ndisk, segment_size):
                 if current_disk_id == ndisk: # current disk is rightmost disk of current stripe, so move to next stripe
 
                     if operation == 0: # write parity before change to next stripe (only for write operation)
-                        writeTrace(current_stripe_id%ndisk, "{} {} {} {} {}".format(time, devno, min_blkno_segment, max_blkcount_segment, IO_READ))
-                        writeTrace(current_stripe_id%ndisk, "{} {} {} {} {}".format(time, devno, min_blkno_segment, max_blkcount_segment, IO_WRITE))
+                        writeTrace(current_stripe_id%ndisk, "%ld %d %ld %d %d" % (time, devno, min_blkno_segment, max_blkcount_segment, IO_READ))
+                        writeTrace(current_stripe_id%ndisk, "%ld %d %ld %d %d" % (time, devno, min_blkno_segment, max_blkcount_segment, IO_WRITE))
 
                     current_disk_id = 0 # start over from disk_0
                     current_stripe_id = current_stripe_id + 1 # move to next stripe
