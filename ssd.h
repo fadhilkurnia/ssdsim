@@ -26,6 +26,7 @@ Hao Luo         2011/01/01        2.0           Change               luohao13568
 
 #define MAX_INT64  0x7fffffffffffffffll
 
+void simulate_ssd(struct user_args *);
 struct ssd_info *simulate(struct ssd_info *);
 int get_requests(struct ssd_info *);
 struct ssd_info *buffer_management(struct ssd_info *);
@@ -40,8 +41,8 @@ void free_all_node(struct ssd_info *);
 struct ssd_info *make_aged(struct ssd_info *);
 struct ssd_info *no_buffer_distribute(struct ssd_info *);
 
-int isRaidSimulation(int, char *[]);
-struct ssd_info *initialize_ssd(struct ssd_info*);
+int parse_user_args(int, char *[], struct user_args *);
+struct ssd_info *initialize_ssd(struct ssd_info*, struct user_args *);
 struct ssd_info *parse_args(struct ssd_info *, int, char *[]);
 void close_file(struct ssd_info *);
 

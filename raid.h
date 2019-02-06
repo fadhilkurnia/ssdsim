@@ -5,9 +5,9 @@
 #define RAID_5 5
 #define NDISK 4
 
-struct raid_info* initialize_raid(struct raid_info*);
+struct raid_info* initialize_raid(struct raid_info*, struct user_args*);
 
-int simulate_raid(int, int, char *[]);
+int simulate_raid(struct user_args *);
 struct raid_info* simulate_raid0(struct raid_info*);
 struct raid_info* simulate_raid5(struct raid_info*);
 

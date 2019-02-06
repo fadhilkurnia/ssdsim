@@ -113,6 +113,14 @@ Hao Luo         2011/01/01        2.0           Change               luohao13568
 #define OVERFLOW	-3
 typedef int Status;     
 
+struct user_args{
+    char parameter_filename[80];
+    char trace_filename[80];
+    int is_raid;
+    int raid_type;
+    int num_disk;
+};
+
 struct ac_time_characteristics{
     int tPROG;     //program time
     int tDBSY;     //bummy busy time for two-plane program
