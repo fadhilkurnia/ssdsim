@@ -14,12 +14,18 @@ int main(int argc, char *argv[])
     struct ssd_info *ssd;
     u_int64_t latency;
 
+    // Available Args
+    char opt_parameter_filename[80] = NULL;
+    char opt_trace_filename[80] = NULL;
+    int opt_is_raid = 0;
+    int opt_raid_type = -1;
+    int opt_num_disk = 0;
+
     display_title();
 
     int raid;
     if ((raid = isRaidSimulation(argc, argv)) != -1) {
-        if (raid == 0) simulate_raid0(argc, argv);
-        if (raid == 5) simulate_raid5(argc, argv);
+        simulate_raid(raid, argc, argv);
         return 0;
     }
     
@@ -46,6 +52,11 @@ int main(int argc, char *argv[])
     return 0;
 }
 
+struct ssd_info *initialize_ssd(struct ssd_info* ssd) {
+
+    return ssd;
+}
+
 // return type of raid, or -1 if not
 int isRaidSimulation(int argc, char *argv[]) {
     int raidtype = -1;
@@ -57,9 +68,9 @@ int isRaidSimulation(int argc, char *argv[]) {
     int opt = 0;
     while ((opt = getopt_long_only(argc, argv,"", long_options, &long_index )) != -1) {
         if (opt == '5') {
-            raidtype = 5;
+            raidtype = RAID_5;
         } else if (opt == '0') {
-            raidtype = 0;
+            raidtype = RAID_0;
         }
     }
     return raidtype;
