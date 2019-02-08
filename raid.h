@@ -6,7 +6,8 @@
 #define NDISK 4
 
 struct raid_info* initialize_raid(struct raid_info*, struct user_args*);
-void free_raid_ssd(struct raid_info*);
+void free_raid_ssd_and_tracefile(struct raid_info*);
+int64_t raid_find_nearest_event(struct raid_info*);
 
 int simulate_raid(struct user_args *);
 struct raid_info* simulate_raid0(struct raid_info*);
@@ -19,8 +20,11 @@ struct raid_info {
     char tracefilename[80];
     FILE * tracefile;
 
+    int64_t current_time;
+    unsigned int max_lsn;
     struct request *request_queue;
     struct request *request_tail;
+    int request_queue_length;
 
     struct ssd_info **connected_ssd;
 };
