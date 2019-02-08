@@ -1,26 +1,55 @@
 #include <sys/stat.h>
 #include <sys/types.h>
+#include <getopt.h>
 #include <stdlib.h>
+#include <unistd.h>
 #include <stdio.h>
+#include <string.h>
 #include "ssd.h"
+#include "raid.h"
 
-int main(int argc, char *argv[]) 
-{
-    unsigned int i, j, k;
-    struct request *requests, *req_head, *current_req;
-    struct ssd_info *ssd;
-    u_int64_t latency;
+int main(int argc, char *argv[]) {
+    unsigned int err;
+    struct user_args *uargs;
+
+    uargs=(struct user_args*) malloc(sizeof(struct user_args));
+    alloc_assert(uargs,"user args");
+    memset(uargs,0, sizeof(struct user_args));
+
+    err = parse_user_args(argc, argv, uargs);
+    if (err == -1) {
+        display_help();
+        return 0;
+    }
 
     display_title();
+
+    if (uargs->is_raid) {
+        simulate_raid(uargs);
+    } else {
+        simulate_ssd(uargs);
+    }
+
+    free(uargs);
+    printf("\nThe simulation is completed! \n");
+
+    return 0;
+}
+
+// simulate_ssd is the main function to initialize and simulate a single ssd device
+void simulate_ssd(struct user_args* uargs) {
+    struct ssd_info *ssd;
     
     ssd=(struct ssd_info*)malloc(sizeof(struct ssd_info));
     alloc_assert(ssd,"ssd");
     memset(ssd,0, sizeof(struct ssd_info));
 
-    ssd=parse_args(ssd, argc, argv);
-    printf("after parsing args\n");
+    ssd=initialize_ssd(ssd, uargs);
+    printf("finish initialize ssd\n");
+
     ssd=initiation(ssd);
-    printf("after initiation\n");
+    printf("finish ssd initiation (prepare inner structure)\n");
+
     ssd=make_aged(ssd);
     ssd=pre_process_page(ssd);
 
@@ -31,30 +60,95 @@ int main(int argc, char *argv[])
     statistic_output(ssd);
     close_file(ssd);
 
-    printf("\nThe simulation is completed! \n");
+    free(ssd);
+}
+
+// parse_user_args function parses optional and required options and arguments
+// for ssdsim, the parsed arguments can be accessed through uargs.
+// This function will return -1 if an error occurrs.
+int parse_user_args(int argc, char *argv[], struct user_args* uargs) {
+    char **positionals;
+    int raidtype = -1;
+    int ndisk = 0;
+
+    static struct option long_options[] = {
+        {"raid0", no_argument, 0, '0'},
+        {"raid5", no_argument, 0, '5'},
+        {"ndisk", required_argument, 0, 'n'},
+        {"parameter", required_argument, 0, 'p'},
+        {0, 0, 0, 0}
+    };
+    
+    // Parsing program options
+    int long_index = 0;
+    int opt = 0;
+    while ((opt = getopt_long(argc, argv,"05n:", long_options, &long_index )) != -1) {
+        switch (opt) {
+            case '5':
+                if (uargs->is_raid == 1) {
+                    printf("Error! only require one type of RAID! you have specified the RAID type previously\n");
+                    return -1;
+                }
+                uargs->is_raid = 1;
+                uargs->raid_type = RAID_5;
+                break;
+            case '0':
+                if (uargs->is_raid == 1) {
+                    printf("Error! only require one type of RAID! you have specified the RAID type previously\n");
+                    return -1;
+                }
+                uargs->is_raid = 1;
+                uargs->raid_type = RAID_0;
+                break;
+            case 'n':
+                ndisk = atoi(optarg);
+                if (ndisk == 0) {
+                    printf("Error! wrong number of disk!\n");
+                    return -1;
+                }
+                uargs->num_disk = ndisk;
+                break;
+            case 'p':
+                strcpy(uargs->parameter_filename, optarg);
+                break;
+            default:
+                printf("Error! parse arguments failed.\n");
+                return -1;
+        }
+    }
+
+    // Parsing tracefile
+    if (optind == argc) {
+        printf("Error! require tracefile to run simulation\n");
+        return -1;
+    }
+    strcpy(uargs->trace_filename, argv[optind]);
+
+    // Additional constraints
+    if (uargs->is_raid && uargs->num_disk == 0) {
+        printf("Error! RAID simulation requires number of disk (--ndisk)\n");
+        return -1;
+    }
+    if (uargs->is_raid && uargs->num_disk < 2) {
+        printf("Error! RAID simulation needs at least 2 disks\n");
+        return -1;
+    }
+
 
     return 0;
 }
 
-/***********************************************************************
- * Read trace file, output file, and statistics file from args.
- * Assign that file to ssd_info global struct.
- ***********************************************************************/
-struct ssd_info *parse_args(struct ssd_info *ssd, int argc, char *argv[])
-{
+// initialize_ssd function initializes ssd struct based on user arguments and also default value.
+// the most important arguments to be initialized is the tracefile and also
+// ssd parameter config file. This function also prepare all log file to store informatin about single ssd simulation
+struct ssd_info *initialize_ssd(struct ssd_info* ssd, struct user_args* uargs) {
     int i;
     char *opt;
     char *current_time;
     char logdir[30];
     char logdirname[60];
 
-    if (argc < 2) {
-        display_help();
-        printf ("\033[31m  ERROR\033[0m: require trace file to start simulation\n");
-        exit(1);
-    }
-
-    // prepare log directory
+    // Prepare log directory for this ssd
     current_time = (char*) malloc(sizeof(char)*30);
     get_current_time(current_time);
     strcpy(logdir, "raw/");
@@ -67,7 +161,6 @@ struct ssd_info *parse_args(struct ssd_info *ssd, int argc, char *argv[])
     strcat(logdir, "/");
 
     // Assign default value
-    strncpy(ssd->parameterfilename,"page.parameters",16);
     strcpy(logdirname, logdir); strcat(logdirname, "ex.out");
     strcpy(ssd->outputfilename, logdirname);
     strcpy(logdirname, logdir); strcat(logdirname, "statistic10.dat");
@@ -83,26 +176,14 @@ struct ssd_info *parse_args(struct ssd_info *ssd, int argc, char *argv[])
     strcpy(logdirname, logdir); strcat(logdirname, "gc.dat");
     strcpy(ssd->outfile_gc_name, logdirname);
 
-    // Read filename from program option parameter
-    for(i = 1; i < argc; i++) {
-        if (i == 1) {
-            strcpy(ssd->tracefilename, argv[i]);
-            continue;
-        }
-        strncpy(opt, argv[i], 3);
-        if (strcmp(opt, "-p=") == 0) {
-            strcpy(ssd->parameterfilename, argv[i]+3);
-            printf("ssd->parameterfilename %s \n", ssd->parameterfilename);
-        } else if (strcmp(opt, "-o=") == 0) {
-            strcpy(logdirname, logdir); strcat(logdirname, argv[i]+3);
-            strcpy(ssd->outputfilename, logdirname);
-            printf("ssd->outputfilename %s \n", ssd->outputfilename);
-        } else if (strcmp(opt, "-s=") == 0) {
-            strcpy(logdirname, logdir); strcat(logdirname, argv[i]+3);
-            strcpy(ssd->statisticfilename, logdirname);
-            printf("ssd->statisticfilename %s \n", ssd->statisticfilename);
-        }
-    }
+    // Assign ssd parameter config file
+    if (strlen(uargs->parameter_filename) == 0)
+        strncpy(ssd->parameterfilename,"page.parameters",16);
+    else
+        strcpy(ssd->parameterfilename, uargs->parameter_filename);
+
+    // Assign tracefilename
+    strcpy(ssd->tracefilename, uargs->trace_filename);
 
     free(current_time);
     return ssd;
@@ -1229,11 +1310,12 @@ void display_title()
 
 void display_help() 
 {
-    printf("  usage: ssd trace_file [options]\n");
+    printf("  usage: ssd [options] trace_file\n");
     printf("    options:\n");
-    printf("     -p=<filename> \t parameter filename (default: page.parameter)\n");
-    printf("     -o=<filename> \t output filename (default: raw/ex.out)\n");
-    printf("     -s=<filename> \t statistics output filename (default: statistic10.dat)\n\n");
+    printf("     --parameter <filename> \t parameter filename (default: page.parameter)\n");
+    printf("     --raid0 \t\t\t run raid 0 simulation\n");
+    printf("     --raid5 \t\t\t run raid 5 simulation\n");
+    printf("     --ndisk <num_disk> \t number of disk for raid simulation\n\n");
 }
 
 void display_simulation_intro(struct ssd_info *ssd)
