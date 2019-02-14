@@ -129,6 +129,10 @@ int parse_user_args(int argc, char *argv[], struct user_args* uargs) {
         printf("Error! RAID simulation requires number of disk (--ndisk)\n");
         return -1;
     }
+    if (uargs->raid_type == RAID_5 && uargs->num_disk < 3) {
+        printf("Error! RAID 5 simulation needs at least 3 disks\n");
+        return -1;
+    }
     if (uargs->is_raid && uargs->num_disk < 2) {
         printf("Error! RAID simulation needs at least 2 disks\n");
         return -1;
