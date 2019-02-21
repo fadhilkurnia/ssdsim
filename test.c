@@ -765,7 +765,7 @@ int64_t trace_output(struct ssd_info* ssd){
     end_time = 0;
 
     if(req == NULL)
-        return;
+        return 0;
 
     while(req != NULL)	
     {

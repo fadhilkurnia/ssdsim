@@ -227,7 +227,6 @@ struct ssd_info *simulate(struct ssd_info *ssd)
         // Buffer layer
         if(flag == 1)
         {   
-            //printf("once\n");
             if (ssd->parameter->dram_capacity!=0)
             {
                 buffer_management(ssd);  

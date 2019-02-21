@@ -3,19 +3,37 @@
 #define RAID_REQUEST_QUEUE_CAPACITY 10
 #define RAID_STRIPE_SIZE_BYTE 65536
 #define RAID_BLOCK_SIZE_BYTE 512
+#define RAID_TO_SSD_LATENCY_NS 500000000
 #define RAID_0 0
 #define RAID_5 5
 #define NDISK 3
 
+#define SSD_SIMULATION_STOP 0
+#define SSD_SIMULATION_CONTINUE 1
+#define RAID_SIMULATION_ERROR 100
+#define RAID_SIMULATION_FINISH 200
+#define R_DIST_ERR 1
+#define R_DIST_SUCCESS 0
+
+#define R_SR_PENDING 0
+#define R_SR_PROCESS 1
+#define R_SR_COMPLETE 2
+
 struct raid_info* initialize_raid(struct raid_info*, struct user_args*);
+struct raid_request* initialize_raid_request(struct raid_request* raid_req, int64_t req_incoming_time, unsigned int req_lsn, unsigned int req_size, unsigned int req_operation);
+struct raid_sub_request* initialize_raid_sub_request(struct raid_sub_request* raid_subreq, struct raid_request* raid_req, unsigned int disk_id, unsigned int stripe_id, unsigned int strip_id, unsigned int strip_offset, unsigned int lsn, unsigned int size, unsigned int operation);
 void free_raid_ssd_and_tracefile(struct raid_info*);
 int64_t raid_find_nearest_event(struct raid_info*);
 
 int simulate_raid(struct user_args *);
 struct raid_info* simulate_raid0(struct raid_info*);
 struct raid_info* simulate_raid5(struct raid_info*);
+int raid_simulate_ssd(struct raid_info*, int);
 
-int raid_distrubute_request(struct raid_info*, int64_t, unsigned int, unsigned int, unsigned int);
+int raid_distribute_request(struct raid_info*, int64_t, unsigned int, unsigned int, unsigned int);
+int raid_clear_completed_request(struct raid_info*);
+
+
 
 // reference: https://www.snia.org/sites/default/files/SNIA_DDF_Technical_Position_v2.0.pdf
 // block and sector is interchangable here
@@ -32,9 +50,42 @@ struct raid_info {
 
     int64_t current_time;
     unsigned int max_lsn;
-    struct request *request_queue;
-    struct request *request_tail;
+    struct raid_request *request_queue;
+    struct raid_request *request_tail;
     unsigned int request_queue_length;
 
     struct ssd_info **connected_ssd;
+};
+
+// Request in RAID level
+struct raid_request {
+    unsigned int lsn;
+    unsigned int size;
+    unsigned int operation;
+
+    int64_t begin_time;
+    int64_t response_time;
+
+    struct raid_sub_request *subs;
+    struct raid_request *prev_node;
+    struct raid_request *next_node;
+};
+
+// Request in SSD level, one raid_request can be separated into multiple raid_sub_request
+struct raid_sub_request {
+    unsigned int disk_id;
+    unsigned int stripe_id;
+    unsigned int strip_id;
+    unsigned int strip_offset;
+
+    int64_t begin_time;
+    int64_t complete_time;
+    unsigned int current_state;
+
+    unsigned int lsn;
+    unsigned int size;
+    unsigned int operation;
+
+    struct raid_sub_request *next_node;
+    struct request *req_in_ssd;
 };

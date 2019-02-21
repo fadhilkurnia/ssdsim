@@ -918,7 +918,6 @@ Status services_2_r_cmd_trans_and_complete(struct ssd_info * ssd)
             }
             else if((sub->current_state==SR_COMPLETE)||((sub->next_state==SR_COMPLETE)&&(sub->next_state_predict_time<=ssd->current_time)))
             {	
-                printf("yap this state\n");
                 if(sub!=ssd->channel_head[i].subs_r_head)                             /*if the request is completed, we delete it from read queue */
                 {		
                     p->next_node=sub->next_node;						
@@ -1639,7 +1638,6 @@ struct ssd_info *process(struct ssd_info *ssd)
 
             sub=ssd->channel_head[i].subs_r_head;                                        /*先处理读请求*/
 
-            // TODO: Fadhil, why this function change the flag into 1
             services_2_r_wait(ssd,i,&flag,&chg_cur_time_flag);                           /*处理处于等待状态的读子请求 | Handling read child requests in wait state*/
 
             if((flag==0)&&(ssd->channel_head[i].subs_r_head!=NULL))                      /*if there are no new read request and data is ready in some dies, send these data to controller and response this request*/		
