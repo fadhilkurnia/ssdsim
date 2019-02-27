@@ -384,6 +384,8 @@ struct request{
 
     struct sub_request *subs;          //链接到属于该请求的所有子请求
     struct request *next_node;         //指向下一个请求结构体
+
+    struct raid_sub_request *subreq_on_raid;
 };
 
 

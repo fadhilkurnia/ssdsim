@@ -1,5 +1,3 @@
-#include "initialize.h"
-
 #define RAID_REQUEST_QUEUE_CAPACITY 10
 #define RAID_STRIPE_SIZE_BYTE 65536
 #define RAID_BLOCK_SIZE_BYTE 512
@@ -29,9 +27,13 @@ int simulate_raid(struct user_args *);
 struct raid_info* simulate_raid0(struct raid_info*);
 struct raid_info* simulate_raid5(struct raid_info*);
 int raid_simulate_ssd(struct raid_info*, int);
+int raid_ssd_interface(struct ssd_info*, struct raid_sub_request*);
+void raid_ssd_trace_output(struct ssd_info*);
 
 int raid_distribute_request(struct raid_info*, int64_t, unsigned int, unsigned int, unsigned int);
 int raid_clear_completed_request(struct raid_info*);
+
+void ssd_delete_request_from_queue(struct ssd_info*, struct request*);
 
 
 
@@ -87,5 +89,4 @@ struct raid_sub_request {
     unsigned int operation;
 
     struct raid_sub_request *next_node;
-    struct request *req_in_ssd;
 };

@@ -188,9 +188,12 @@ struct raid_info* simulate_raid0(struct raid_info* raid) {
         }
 
         // simulate all the ssd in the raid
-        for(int i = 0; i < raid->num_disk; i++)
+        for(int i = 0; i < raid->num_disk; i++) {
+            printf("simulate disk %d\n", i);
             raid_simulate_ssd(raid, i);
-
+            printf("end simulate disk %d\n", i);
+        }
+        
         // remove processed request from raid queue
         raid_clear_completed_request(raid);
 
@@ -230,7 +233,7 @@ int raid_distribute_request(struct raid_info* raid, int64_t req_incoming_time, u
             disk_req_size = (raid->strip_size_block - strip_offset >= req_size) ? raid->strip_size_block - strip_offset : req_size;
 
             // add sub_request to request
-            printf("--> %u %u %u %u\n", disk_id, stripe_id, strip_id, strip_offset);
+            printf("--> %u %u %u %u %u\n", disk_id, stripe_id, strip_id, strip_offset, disk_req_lsn);
             raid_subreq = (struct raid_sub_request*)malloc(sizeof(struct raid_sub_request));
             alloc_assert(raid_subreq, "raid_sub_request");
             memset(raid_subreq,0,sizeof(struct raid_sub_request));
@@ -282,12 +285,13 @@ int raid_clear_completed_request(struct raid_info* raid) {
             }
 
             if (raid->request_queue == req_pointer) {  // first element in queue
-                raid->request_queue = req_pointer->next_node;
+                raid->request_queue = NULL;
+                raid->request_tail = NULL;
                 free(req_pointer);
                 req_pointer = raid->request_queue;
             } else {
                 temp_r = req_pointer->prev_node;
-                req_pointer->prev_node->next_node = req_pointer->next_node;
+                (req_pointer->prev_node)->next_node = req_pointer->next_node;
                 free(req_pointer);
                 req_pointer = temp_r;
             }
@@ -298,7 +302,6 @@ int raid_clear_completed_request(struct raid_info* raid) {
         if (req_pointer != NULL)
             req_pointer = req_pointer->next_node;
     }
-    
     return 0;
 }
 
@@ -323,7 +326,7 @@ int raid_simulate_ssd(struct raid_info* raid, int disk_id) {
         }
         req_pointer = req_pointer->next_node;
     }
-
+    
     if (err != ERROR) {
         if (ssd->parameter->dram_capacity!=0) {
             buffer_management(ssd);
@@ -363,6 +366,7 @@ int raid_ssd_interface(struct ssd_info* ssd, struct raid_sub_request *subreq) {
         }
     }
 
+
     ssd_request = (struct request*) malloc(sizeof(struct request));
     alloc_assert(ssd_request, "ssd_request");
     memset(ssd_request, 0, sizeof(struct request));
@@ -379,8 +383,7 @@ int raid_ssd_interface(struct ssd_info* ssd, struct raid_sub_request *subreq) {
     ssd_request->subs = NULL;
     ssd_request->need_distr_flag = NULL;
     ssd_request->complete_lsn_count=0;
-
-    subreq->req_in_ssd = ssd_request;
+    ssd_request->subreq_on_raid = subreq;
 
     // add to ssd queue
     if (ssd->request_queue == NULL) {
@@ -395,14 +398,157 @@ int raid_ssd_interface(struct ssd_info* ssd, struct raid_sub_request *subreq) {
     if (ssd_request->lsn > ssd->max_lsn) ssd->max_lsn = ssd_request->lsn;
     if (ssd_request->lsn < ssd->min_lsn) ssd->min_lsn = ssd_request->lsn;
     if (ssd_request->operation == WRITE) ssd->ave_write_size=(ssd->ave_write_size*ssd->write_request_count+ssd_request->size)/(ssd->write_request_count+1);
-    if (ssd_request->operation == READ) ssd->ave_read_size=(ssd->ave_read_size*ssd->read_request_count+request1->size)/(ssd->read_request_count+1);
+    if (ssd_request->operation == READ) ssd->ave_read_size=(ssd->ave_read_size*ssd->read_request_count+ssd_request->size)/(ssd->read_request_count+1);
 
     return SUCCESS;
 }
 
-int raid_ssd_trace_output(struct ssd_info* ssd) {
-    trace_output(ssd);
-    return 0;
+void raid_ssd_trace_output(struct ssd_info* ssd) {
+    struct request *req, *req_temp;
+    struct sub_request *sub, *tmp;
+    int64_t start_time, end_time, latency;
+    int is_all_sub_completed;
+
+    req_temp = NULL;
+    req = ssd->request_queue;
+    if (req == NULL)
+        return;
+
+    while (req != NULL){
+        latency = 0;
+        if (req->response_time != 0) {
+            latency = req->response_time - req->time;
+            fprintf(ssd->outputfile,"%16lld %10d %6d %2d %16lld %16lld %10lld %2d %10lld\n",req->time,req->lsn, req->size, req->operation, req->begin_time, req->response_time, latency, req->meet_gc_flag, req->meet_gc_remaining_time); fflush(ssd->outputfile);
+            fprintf(ssd->outfile_io,"%16lld %10d %6d %2d %16lld %16lld %10lld %2d %10lld\n",req->time,req->lsn, req->size, req->operation, req->begin_time, req->response_time, latency, req->meet_gc_flag, req->meet_gc_remaining_time); fflush(ssd->outfile_io);
+            if (req->operation == WRITE) {
+                fprintf(ssd->outfile_io_write,"%16lld %10d %6d %2d %16lld %16lld %10lld %2d %10lld\n",req->time,req->lsn, req->size, req->operation, req->begin_time, req->response_time, latency, req->meet_gc_flag, req->meet_gc_remaining_time);
+                fflush(ssd->outfile_io_write);
+                ssd->write_request_count++;
+                ssd->write_avg=ssd->write_avg+(req->response_time-req->time);
+            } else if (req->operation == READ){
+                fprintf(ssd->outfile_io_read,"%16lld %10d %6d %2d %16lld %16lld %10lld %2d %10lld\n",req->time,req->lsn, req->size, req->operation, req->begin_time, req->response_time, latency, req->meet_gc_flag, req->meet_gc_remaining_time);
+                fflush(ssd->outfile_io_read);
+                ssd->read_request_count++;
+                ssd->read_avg=ssd->read_avg+(req->response_time-req->time);
+            }
+            
+            if(req->response_time-req->begin_time==0) {
+                printf("the response time is 0?? \n");
+                exit(1);
+            }
+
+            req_temp = req;
+            req = req->next_node;
+            ssd_delete_request_from_queue(ssd, req_temp);
+
+        } else {
+            sub = req->subs;
+            is_all_sub_completed = 1;
+            start_time = end_time = 0;
+
+            // if any sub-request is not completed, the request is not completed
+            while (sub != NULL){
+                if (start_time == 0) start_time = sub->begin_time;
+                if (start_time > sub->begin_time) start_time = sub->begin_time;
+                if (end_time < sub->complete_time) end_time = sub->complete_time;
+
+                if((sub->current_state == SR_COMPLETE)||((sub->next_state==SR_COMPLETE)&&(sub->next_state_predict_time<=ssd->current_time))) {
+                    sub = sub->next_node;
+                } else {
+                    is_all_sub_completed = 0;
+                    break;
+                }
+            }
+            
+            if (is_all_sub_completed) {
+                latency = end_time-req->time;
+                
+                fprintf(ssd->outputfile,"%16lld %10d %6d %2d %16lld %16lld %10lld %2d %10lld\n",req->time,req->lsn, req->size, req->operation, req->begin_time, req->response_time, latency, req->meet_gc_flag, req->meet_gc_remaining_time);
+                fflush(ssd->outputfile);
+                fprintf(ssd->outfile_io,"%16lld %10d %6d %2d %16lld %16lld %10lld %2d %10lld\n",req->time,req->lsn, req->size, req->operation, req->begin_time, req->response_time, latency, req->meet_gc_flag, req->meet_gc_remaining_time);
+                fflush(ssd->outfile_io);
+
+                if (req->operation == WRITE) {
+                    fprintf(ssd->outfile_io_write,"%16lld %10d %6d %2d %16lld %16lld %10lld %2d %10lld\n",req->time,req->lsn, req->size, req->operation, req->begin_time, req->response_time, latency, req->meet_gc_flag, req->meet_gc_remaining_time);
+                    fflush(ssd->outfile_io_write);
+                    ssd->write_request_count++;
+                    ssd->write_avg=ssd->write_avg+(end_time-req->time);
+                } else if (req->operation == READ){
+                    fprintf(ssd->outfile_io_read,"%16lld %10d %6d %2d %16lld %16lld %10lld %2d %10lld\n",req->time,req->lsn, req->size, req->operation, req->begin_time, req->response_time, latency, req->meet_gc_flag, req->meet_gc_remaining_time);
+                    fflush(ssd->outfile_io_read);
+                    ssd->read_request_count++;
+                    ssd->read_avg=ssd->read_avg+(end_time-req->time);
+                }
+
+                if(end_time-start_time==0) {
+                    printf("the response time is 0?? \n");
+                    exit(1);
+                }
+
+                // empty the sub on the req
+                while (req->subs!=NULL){
+                    tmp = req->subs;
+                    req->subs = tmp->next_subs;
+                    if (tmp->update!=NULL) {
+                        free(tmp->update->location);
+                        tmp->update->location=NULL;
+                        free(tmp->update);
+                        tmp->update=NULL;
+                    }
+                    free(tmp->location);
+                    tmp->location=NULL;
+                    free(tmp);
+                    tmp=NULL;
+                }
+                
+                req_temp = req;
+                req = req->next_node;
+                ssd_delete_request_from_queue(ssd, req_temp);
+
+            } else {
+                req = req->next_node;
+            }
+
+        }
+    }
+    
+
+    return;
+}
+
+void ssd_delete_request_from_queue(struct ssd_info* ssd, struct request *req) {
+    struct request *temp, *prev;
+
+    if (req == ssd->request_queue) {
+        (req->subreq_on_raid)->current_state = R_SR_COMPLETE;
+        (req->subreq_on_raid)->complete_time = req->response_time;
+        req->subreq_on_raid = NULL;
+        ssd->request_queue = req->next_node;
+
+        if (req->need_distr_flag != NULL) free(req->need_distr_flag);
+        free(req);
+
+        ssd->request_queue=NULL;
+        ssd->request_tail=NULL;
+        ssd->request_queue_length--;
+        return;
+    }
+
+    temp = ssd->request_queue;
+    while (temp != NULL && temp != req) { 
+        prev = temp; 
+        temp = temp->next_node; 
+    } 
+
+    if (temp == NULL) return;
+
+    prev->next_node = temp->next_node;
+    (req->subreq_on_raid)->current_state = R_SR_COMPLETE;
+    (req->subreq_on_raid)->complete_time = req->response_time;
+    if (req->need_distr_flag != NULL) free(req->need_distr_flag);
+    free(req);
+    ssd->request_queue_length--;
+    return;
 }
 
 struct raid_info* simulate_raid5(struct raid_info* raid) {
