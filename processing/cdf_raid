@@ -1,0 +1,97 @@
+#!/usr/bin/env python3
+import sys
+import numpy as np
+from matplotlib import pyplot as plt
+
+# assuming all io have different incoming time
+def main(argv):
+    if len(argv) < 1:
+        raise ValueError("Need raid log filename, it can be obtained after runing raid simulation with raid5 script")
+    
+    raidlog_filename = argv[0]
+    raidlog = open(raidlog_filename, "r")
+
+    iolog_filename = []
+    iolog_file = []
+
+    iodata = dict()
+
+    for line in raidlog:
+        line = line.rstrip()
+        iolog_filename.append(line + "io_read.dat")
+        iolog_file.append(open(line + "io_read.dat"))
+
+    ndisk = len(iolog_filename)
+
+    grid = plt.GridSpec(ndisk, ndisk, wspace=0.08, hspace=1.5)
+
+    # read all read io request
+    diskid = 0
+    for idx, iofile in enumerate(iolog_file):
+        ssd_latency_dict = dict()
+        for line in iofile:
+            io_token = line.split()
+            io_start = int(io_token[0])
+            io_ope = int(io_token[3])
+            io_latency = int(io_token[6])
+            io_latency = float(float(io_latency) / float(1000000))
+
+            io_key = str(io_start) + "_" + str(io_ope)
+
+            if io_key not in ssd_latency_dict:
+                ssd_latency_dict[io_key] = io_latency
+            if ssd_latency_dict[io_key] < io_latency:
+                ssd_latency_dict[io_key] = io_latency
+
+            if io_key not in iodata:
+                iodata[io_key] = io_latency
+            if iodata[io_key] < io_latency:
+                iodata[io_key] = io_latency
+        
+        ssd_latency_data = []
+        for req_id, req_latency in ssd_latency_dict.items():
+            ssd_latency_data.append(req_latency)
+
+        # draw cdf graph for this disk    
+        nrequest = len(ssd_latency_data)
+        x = np.sort(ssd_latency_data)
+        y = np.arange(1, nrequest+1) / nrequest
+        ax = plt.subplot(grid[ndisk-1, diskid] , ymargin=0, xmargin=0)
+        ax.set_title("disk" + str(diskid), fontsize=8)
+        ax.plot(x, y)
+        ax.set_ylim([0.85, 1.0])
+        ax.set_xlabel('Read Latency (ms)', fontsize=8)
+        ax.tick_params(labelsize=3)
+        if diskid is not 0:
+            ax.set_yticks([], [])
+        else:
+            ax.set_ylabel('CDF')
+
+
+        diskid = diskid + 1
+
+    latency_data = []
+    for req_id, req_latency in iodata.items():
+        latency_data.append(req_latency)
+
+    # plot the main raph (user level latency)
+    nrequest = len(latency_data)
+    x = np.sort(latency_data)
+    y = np.arange(1, nrequest+1) / nrequest
+    
+    ax = plt.subplot(grid[:(ndisk-1), 0:], ymargin=0, xmargin=0)
+    ax.set_title("RAID5 Read Latency CDF")
+    ax.plot(x, y, marker='.', markersize=1, linestyle='none')
+    ax.set_xlabel('Read Latency (ms)')
+    ax.set_ylabel('CDF')
+    ax.set_ylim([0.85, 1.001])
+
+    plt.show()
+
+    # print("\n STATISTIC:")
+    # print("total request: " + str(nrequest))
+
+    return
+    
+if __name__ == "__main__":
+    main(sys.argv[1:])
