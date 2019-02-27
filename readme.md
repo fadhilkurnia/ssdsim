@@ -112,6 +112,18 @@ Example of the generated graph:
 
 ![GC Collision Graph Example](img/gc_collision_example.png)
 
+### Generate IO Latency from RAID Simulation's Log
+Generate user level latency from RAID simulation. Need numpy and matplotlib, tested with Python 3. To generate this graph, run this command:
+```
+python3 processing/cdf_raid <generated_raid_log>
+
+example:
+python3 processing/cdf_raid raw/raid_20181219_183533.log
+```
+
+Example of the generated graph:
+![GC Collision Graph Example](img/cdf_raid_example.png)
+
 ### Generate GC Timeline Graph
 Work in progress ...
 
