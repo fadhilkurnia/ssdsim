@@ -75,6 +75,7 @@ int parse_user_args(int argc, char *argv[], struct user_args* uargs) {
         {"raid0", no_argument, 0, '0'},
         {"raid5", no_argument, 0, '5'},
         {"ndisk", required_argument, 0, 'n'},
+        {"timestamp", required_argument, 0, 't'},
         {"parameter", required_argument, 0, 'p'},
         {0, 0, 0, 0}
     };
@@ -107,6 +108,9 @@ int parse_user_args(int argc, char *argv[], struct user_args* uargs) {
                     return -1;
                 }
                 uargs->num_disk = ndisk;
+                break;
+            case 't':
+                strcpy(uargs->simulation_timestamp, optarg);
                 break;
             case 'p':
                 strcpy(uargs->parameter_filename, optarg);
@@ -149,8 +153,12 @@ struct ssd_info *initialize_ssd(struct ssd_info* ssd, struct user_args* uargs) {
     char logdirname[60];
 
     // Prepare log directory for this ssd
-    current_time = (char*) malloc(sizeof(char)*30);
-    get_current_time(current_time);
+    current_time = (char*) malloc(sizeof(char)*16);
+    if (strlen(uargs->simulation_timestamp) != 0) {
+        strcpy(current_time, uargs->simulation_timestamp);
+    } else {
+        get_current_time(current_time);
+    }
     strcpy(logdir, "raw/");
     strcat(logdir, current_time);
     if (0 != mkdir(logdir,0777)) {
@@ -1312,6 +1320,7 @@ void display_help()
 {
     printf("  usage: ssd [options] trace_file\n");
     printf("    options:\n");
+    printf("     --timestamp <time> \t 15 chars timestamp used for log directory name (e.g: 20190214_220000), the default is current time\n");
     printf("     --parameter <filename> \t parameter filename (default: page.parameter)\n");
     printf("     --raid0 \t\t\t run raid 0 simulation\n");
     printf("     --raid5 \t\t\t run raid 5 simulation\n");
