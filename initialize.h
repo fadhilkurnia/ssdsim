@@ -116,6 +116,7 @@ typedef int Status;
 struct user_args{
     char parameter_filename[80];
     char trace_filename[80];
+    char simulation_timestamp[16];
     int is_raid;
     int raid_type;
     int num_disk;

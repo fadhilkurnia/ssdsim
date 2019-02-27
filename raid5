@@ -24,21 +24,23 @@ def main(argv):
     ndisk = int(argv[0])
     tracefilename = argv[1]
 
+    raid_simulation_timestamp = getCurrentTimestamp()
+
     print("preparing tracefiles")
-    raid_tracefiles_location = breakTracefile(tracefilename, ndisk, RAID_SEGMENT_SIZE)
+    raid_tracefiles_location = breakTracefile(raid_simulation_timestamp, tracefilename, ndisk, RAID_SEGMENT_SIZE)
 
     print("runing simulation")
-    runRAID(raid_tracefiles_location)
+    runRAID(raid_simulation_timestamp, raid_tracefiles_location)
 
     return
 
 # 
-def breakTracefile(infile, ndisk, segment_size):
+def breakTracefile(simulation_timestamp, infile, ndisk, segment_size):
     firstline = [True] * ndisk
     outtraces = []
     outtracesname = []
 
-    timestamp_dir = getCurrentTimestamp() + "/"
+    timestamp_dir = simulation_timestamp + "/"
     if not os.path.exists(OUT_TRACEFILE_DIR+timestamp_dir):
         os.makedirs(OUT_TRACEFILE_DIR+timestamp_dir)
     
@@ -133,13 +135,13 @@ def breakTracefile(infile, ndisk, segment_size):
 
     return outtracesname
 
-def runRAID(tracefiles_loc):
-    raidlog = open("raw/raid_"+getCurrentTimestamp()+".log", "w")
+def runRAID(simulation_timestamp, tracefiles_loc):
+    raidlog = open("raw/raid_"+simulation_timestamp+".log", "w")
 
     for intracefile in tracefiles_loc:
-        command = "./ssd "+intracefile
-        print(command)
         timestamp = getCurrentTimestamp()
+        command = "./ssd --timestamp "+timestamp+" "+intracefile
+        print(command)
 
         os.system(command)
         raidlog.writelines(OUT_RAID_LOG_DIR + timestamp + "/" + "\n")
