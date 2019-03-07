@@ -7,23 +7,117 @@ from matplotlib import pyplot as plt
 def main(argv):
     if len(argv) < 1:
         raise ValueError("Need raid log filename, it can be obtained after runing raid simulation with raid5 script")
-    
+
+    # getting the number of disk from first raid log
     raidlog_filename = argv[0]
     raidlog = open(raidlog_filename, "r")
+    ndisk = 0
+    for line in raidlog:
+        ndisk = ndisk + 1
 
-    iolog_filename = []
-    iolog_file = []
+    # preparing the graph axes
+    grid = plt.GridSpec(ndisk, ndisk, wspace=0.08, hspace=1.5)
+    main_graph = plt.subplot(grid[:(ndisk-1), 0:], ymargin=0, xmargin=0)
+    disk_graph = []
+    for diskid in range(ndisk):
+        ax = plt.subplot(grid[ndisk-1, diskid] , ymargin=0, xmargin=0)
+        ax.set_title("disk" + str(diskid), fontsize=8)
+        ax.set_xlabel('Read Latency (ms)', fontsize=8)
+        ax.set_ylim([0.85, 1.0])
+        ax.tick_params(labelsize=3)
+        if diskid is not 0:
+            ax.set_yticks([], [])
+        else:
+            ax.set_ylabel('CDF')
+        disk_graph.append(ax)
+    
+    # plot_graph(main_graph, disk_graph, iolog_file, ndisk)
+
+    # gathering all the latencies from log
+    raid_simulation_data = []
+    for diskid, raid_log in enumerate(argv):
+        simulation_data = {
+            "raid_data": [],
+            "disk_data": []
+        }
+        raidlog_filename = raid_log
+        raidlog = open(raidlog_filename, "r")
+        iolog_filename = []
+        iolog_file = []
+
+        for line in raidlog:
+            line = line.rstrip()
+            iolog_filename.append(line + "io_read.dat")
+            iolog_file.append(open(line + "io_read.dat"))
+            simulation_data["disk_data"].append([])
+
+        if len(iolog_file) != ndisk:
+            raise ValueError("The number of disk in all simulation must be the same!")
+        
+        iodata = dict()
+        for idx, iofile in enumerate(iolog_file):
+            ssd_latency_dict = dict()
+            for line in iofile:
+                io_token = line.split()
+                io_start = int(io_token[0])
+                io_ope = int(io_token[3])
+                io_latency = int(io_token[6])
+                io_latency = float(float(io_latency) / float(1000000))
+
+                io_key = str(io_start) + "_" + str(io_ope)
+
+                if io_key not in ssd_latency_dict:
+                    ssd_latency_dict[io_key] = io_latency
+                if ssd_latency_dict[io_key] < io_latency:
+                    ssd_latency_dict[io_key] = io_latency
+
+                if io_key not in iodata:
+                    iodata[io_key] = io_latency
+                if iodata[io_key] < io_latency:
+                    iodata[io_key] = io_latency
+
+            for req_id, req_latency in ssd_latency_dict.items():
+                simulation_data["disk_data"][idx].append(req_latency)
+
+        for req_id, req_latency in iodata.items():
+            simulation_data["raid_data"].append(req_latency)
+
+        raid_simulation_data.append(simulation_data)
+        print("finish processing " + raid_log)
+
+
+    # start plotting the data
+    main_graph.set_title("RAID5 Read Latency CDF")
+    main_graph.set_xlabel('Read Latency (ms)')
+    main_graph.set_ylabel('CDF')
+    main_graph.set_ylim([0.85, 1.001])
+    for simid, simulation_data in enumerate(raid_simulation_data):
+        nrequest = len(simulation_data["raid_data"])
+        x = np.sort(simulation_data["raid_data"])
+        y = np.arange(1, nrequest+1) / nrequest
+        label = ''
+        if simid == 0:
+            label = 'RAID5-TPCC'
+        else:
+            label = 'RAID5-TPCC-nogc'
+        main_graph.plot(x, y, marker='.', markersize=1, linestyle='none', label=label)
+        print("nrequest: " + str(nrequest))
+
+        for diskid, ssd_latency_data in enumerate(simulation_data["disk_data"]):
+            nrequest = len(ssd_latency_data)
+            x = np.sort(ssd_latency_data)
+            y = np.arange(1, nrequest+1) / nrequest
+            disk_graph[diskid].plot(x, y, marker='.', markersize=1, linestyle='none')
+            print("  disk " + str(diskid) + " nrequest: " + str(nrequest))
+
+    main_graph.legend(loc = 'lower right')
+    plt.show()
+
+    return
+
+def plot_graph(main_graph, disk_graph, iolog_file, ndisk, nogc = False):
 
     iodata = dict()
-
-    for line in raidlog:
-        line = line.rstrip()
-        iolog_filename.append(line + "io_read.dat")
-        iolog_file.append(open(line + "io_read.dat"))
-
-    ndisk = len(iolog_filename)
-
-    grid = plt.GridSpec(ndisk, ndisk, wspace=0.08, hspace=1.5)
 
     # read all read io request
     diskid = 0
@@ -56,16 +150,16 @@ def main(argv):
         nrequest = len(ssd_latency_data)
         x = np.sort(ssd_latency_data)
         y = np.arange(1, nrequest+1) / nrequest
-        ax = plt.subplot(grid[ndisk-1, diskid] , ymargin=0, xmargin=0)
-        ax.set_title("disk" + str(diskid), fontsize=8)
-        ax.plot(x, y)
-        ax.set_ylim([0.85, 1.0])
-        ax.set_xlabel('Read Latency (ms)', fontsize=8)
-        ax.tick_params(labelsize=3)
+        
+        disk_graph[diskid].set_title("disk" + str(diskid), fontsize=8)
+        disk_graph[diskid].plot(x, y)
+        disk_graph[diskid].set_ylim([0.85, 1.0])
+        disk_graph[diskid].set_xlabel('Read Latency (ms)', fontsize=8)
+        disk_graph[diskid].tick_params(labelsize=3)
         if diskid is not 0:
-            ax.set_yticks([], [])
+            disk_graph[diskid].set_yticks([], [])
         else:
-            ax.set_ylabel('CDF')
+            disk_graph[diskid].set_ylabel('CDF')
 
 
         diskid = diskid + 1
@@ -79,14 +173,11 @@ def main(argv):
     x = np.sort(latency_data)
     y = np.arange(1, nrequest+1) / nrequest
     
-    ax = plt.subplot(grid[:(ndisk-1), 0:], ymargin=0, xmargin=0)
-    ax.set_title("RAID5 Read Latency CDF")
-    ax.plot(x, y, marker='.', markersize=1, linestyle='none')
-    ax.set_xlabel('Read Latency (ms)')
-    ax.set_ylabel('CDF')
-    ax.set_ylim([0.85, 1.001])
-
-    plt.show()
+    main_graph.set_title("RAID5 Read Latency CDF")
+    main_graph.plot(x, y, marker='.', markersize=1, linestyle='none')
+    main_graph.set_xlabel('Read Latency (ms)')
+    main_graph.set_ylabel('CDF')
+    main_graph.set_ylim([0.85, 1.001])
 
     # print("\n STATISTIC:")
     # print("total request: " + str(nrequest))
