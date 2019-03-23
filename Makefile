@@ -12,7 +12,7 @@ test.o: flash.h initialize.h pagemap.h
 	gcc -c -g test.c
 ssd: ssd.o avlTree.o flash.o initialize.o pagemap.o raid.o
 	cc -g -o ssd ssd.o avlTree.o flash.o initialize.o pagemap.o raid.o
-	rm *.o
+#	rm *.o
 ssd.o: flash.h initialize.h pagemap.h raid.h
 	gcc -c -g ssd.c
 flash.o: pagemap.h

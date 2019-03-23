@@ -1,4 +1,4 @@
-#define RAID_REQUEST_QUEUE_CAPACITY 10
+#define RAID_REQUEST_QUEUE_CAPACITY 20
 #define RAID_STRIPE_SIZE_BYTE 65536
 #define RAID_BLOCK_SIZE_BYTE 512
 #define RAID_TO_SSD_LATENCY_NS 500000000
@@ -28,14 +28,16 @@ struct raid_info* simulate_raid0(struct raid_info*);
 struct raid_info* simulate_raid5(struct raid_info*);
 int raid_simulate_ssd(struct raid_info*, int);
 int raid_ssd_interface(struct ssd_info*, struct raid_sub_request*);
+int raid_ssd_get_requests(int disk_id, struct ssd_info *ssd, struct raid_info *raid);
 void raid_ssd_trace_output(struct ssd_info*);
 
 int raid_distribute_request(struct raid_info*, int64_t, unsigned int, unsigned int, unsigned int);
 int raid_clear_completed_request(struct raid_info*);
 
 void ssd_delete_request_from_queue(struct ssd_info*, struct request*);
+void raid_print_req_queue(struct raid_info*);
 
-
+void break_raid0_tracefile(struct raid_info*);
 
 // reference: https://www.snia.org/sites/default/files/SNIA_DDF_Technical_Position_v2.0.pdf
 // block and sector is interchangable here

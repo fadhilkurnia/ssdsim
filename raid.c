@@ -130,73 +130,151 @@ int64_t raid_find_nearest_event(struct raid_info* raid) {
     return nearest_time;
 }
 
-struct raid_info* simulate_raid0(struct raid_info* raid) {
-    char buffer[200];
+void break_raid0_tracefile(struct raid_info* raid) {
     long filepoint;
+    char buffer[200];
     int64_t req_incoming_time, nearest_event_time;
-    int req_device_id, req_lsn, req_size, req_operation, flag, err;
+    int req_device_id, req_lsn, req_size, req_operation, flag, err, is_accept_req;
+    unsigned int disk_id, strip_id, stripe_id, stripe_offset, strip_offset, disk_req_lsn, disk_req_size;
+    int req_size_block;
 
-    while (flag != RAID_SIMULATION_FINISH) {
-
-        // If we reach the end of the tracefile, stop the simulation
-        if (feof(raid->tracefile)) {
-            flag = RAID_SIMULATION_FINISH;
+    FILE **tracefile;
+    tracefile = malloc(sizeof(FILE*) * raid->num_disk);
+    for(int i=0; i < raid->num_disk; i++) {
+        sprintf(buffer, "raid0disk%d.trace", i);
+        tracefile[i] = fopen(buffer, "w");
+        if(tracefile[i] == NULL) {
+            printf("the %d tracefile can't be opened\n", i);
+            exit(1);
         }
-        
-        // Read a request from tracefile
+    }
+
+    while (!feof(raid->tracefile)) {
         filepoint = ftell(raid->tracefile);
         fgets (buffer, 200, raid->tracefile);
         sscanf (buffer,"%lld %d %d %d %d", &req_incoming_time, &req_device_id, &req_lsn, &req_size, &req_operation);
 
-        // Validating incoming request
-        if (req_device_id < 0 || req_lsn < 0 || req_size < 0 || !(req_operation == 0 || req_operation == 1)) {
-            printf("Error! wrong io request from tracefile (%lld %d %d %d %d)\n", req_incoming_time, req_device_id, req_lsn, req_size, req_operation);
-            exit(1);
-        }
-        if (req_incoming_time < 0) {
-            printf("Error! wrong incoming time! (%lld %d %d %d %d)\n", req_incoming_time, req_device_id, req_lsn, req_size, req_operation);
-            exit(1);
-        }
-        req_lsn = req_lsn%raid->max_lsn;
-        
-        // Set raid current_time
-        nearest_event_time = raid_find_nearest_event(raid);
-        if (nearest_event_time == MAX_INT64) {
-            raid->current_time = req_incoming_time;    
-        } else if (nearest_event_time < req_incoming_time){
-            fseek(raid->tracefile,filepoint,0);
-            raid->current_time = nearest_event_time;
-            continue;
-        } else {
-            if (raid->request_queue_length >= RAID_REQUEST_QUEUE_CAPACITY) {
-                fseek(raid->tracefile,filepoint,0);
-                raid->current_time = nearest_event_time;
-                continue;
-            } else {
-                raid->current_time = req_incoming_time;
+        printf("%lld %d %d %d %d\n", req_incoming_time, req_device_id, req_lsn, req_size, req_operation);
+        req_size_block = req_size;
+
+        while(req_size_block > 0){
+            stripe_id = req_lsn / raid->stripe_size_block;
+            stripe_offset = req_lsn - (stripe_id * raid->stripe_size_block);
+            strip_id = stripe_offset / raid->strip_size_block;
+            strip_offset = stripe_offset % raid->strip_size_block;
+            disk_id = strip_id;
+            disk_req_lsn = (stripe_id * raid->strip_size_block) + strip_offset;
+            disk_req_size = (raid->strip_size_block - strip_offset >= req_size) ? raid->strip_size_block - strip_offset : req_size;
+
+            // add sub_request to request
+            printf(" ---> req distributed to ssd: %u %u %u %u %u\n", disk_id, stripe_id, strip_id, strip_offset, disk_req_lsn);
+            fprintf(tracefile[disk_id], "%lld 0 %u %u %u\n", req_incoming_time, disk_req_lsn, disk_req_size, req_operation);
+
+            req_size_block = req_size_block - (raid->strip_size_block - strip_offset);
+            if (req_size_block > 0) {
+                req_size = req_size_block;
+                req_lsn = req_lsn + req_size;
             }
         }
 
-        printf("%lld %d %d %d %d\n", req_incoming_time, req_device_id, req_lsn, req_size, req_operation);
+    }
+
+    for(int i=0; i < raid->num_disk; i++) {
+        fclose(tracefile[i]);
+    }
+}
+
+struct raid_info* simulate_raid0(struct raid_info* raid) {
+    int req_device_id, req_lsn, req_size, req_operation, flag, err, is_accept_req, interface_flag;
+    int64_t req_incoming_time, nearest_event_time;
+    struct ssd_info *ssd;
+    char buffer[200];
+    long filepoint;
+
+    while (flag != RAID_SIMULATION_FINISH) {
+
+        // Stop the simulation, if we reach the end of the tracefile and request queue is empty
+        if (feof(raid->tracefile) && raid->request_queue_length==0) {
+            flag = RAID_SIMULATION_FINISH;
+        }
         
-        // insert request to raid rquest queue
-        // a single request can be forwarder to multiple disk
-        err = raid_distribute_request(raid, req_incoming_time, req_lsn, req_size, req_operation);
-        if (err == R_DIST_ERR) {
-            fseek(raid->tracefile,filepoint,0);
-            continue;
+        if (!feof(raid->tracefile)) {
+
+            // Read a request from tracefile
+            filepoint = ftell(raid->tracefile);
+            fgets (buffer, 200, raid->tracefile);
+            sscanf (buffer,"%lld %d %d %d %d", &req_incoming_time, &req_device_id, &req_lsn, &req_size, &req_operation);
+            is_accept_req = 1;
+
+            // Validating incoming request
+            if (req_device_id < 0 || req_lsn < 0 || req_size < 0 || !(req_operation == 0 || req_operation == 1)) {
+                printf("Error! wrong io request from tracefile (%lld %d %d %d %d)\n", req_incoming_time, req_device_id, req_lsn, req_size, req_operation);
+                exit(1);
+            }
+            if (req_incoming_time < 0) {
+                printf("Error! wrong incoming time! (%lld %d %d %d %d)\n", req_incoming_time, req_device_id, req_lsn, req_size, req_operation);
+                exit(1);
+            }
+            req_lsn = req_lsn%raid->max_lsn;
+            
+            // if nearest event time is less than incoming time, than skip to insert this request
+            // if queue is full, skip this request too
+            // Set raid current_time
+
+            // Check whether we can process this request or not, also set raid->current_time
+            nearest_event_time = raid_find_nearest_event(raid);
+            printf(" nearest time %lld %lld %lld %d\n", nearest_event_time, req_incoming_time, raid->current_time, raid->request_queue_length);
+            if (raid->request_queue_length >= RAID_REQUEST_QUEUE_CAPACITY) {
+                fseek(raid->tracefile,filepoint,0);
+                raid->current_time = nearest_event_time;
+                is_accept_req = 0;
+            }
+
+            if (is_accept_req) {
+                printf("req inserted: %lld %d %d %d %d [%d]\n", req_incoming_time, req_device_id, req_lsn, req_size, req_operation, raid->request_queue_length);
+            
+                // insert request to raid rquest queue
+                // a single request can be forwarder to multiple disk
+                err = raid_distribute_request(raid, req_incoming_time, req_lsn, req_size, req_operation);
+                if (err == R_DIST_ERR) {
+                    fseek(raid->tracefile,filepoint,0);
+                    printf("Error! Distributing raid request failed!\n");
+                    // getchar();
+                    continue;
+                }
+            }
         }
 
-        // simulate all the ssd in the raid
+        // simulate all the ssd in the raid, 
+        // this is corresponding to simulate(ssd_info *ssd) function in ssd.c
         for(int i = 0; i < raid->num_disk; i++) {
-            printf("simulate disk %d\n", i);
-            raid_simulate_ssd(raid, i);
-            printf("end simulate disk %d\n", i);
+            printf("begin simulating disk %d\n", i);
+            // raid_simulate_ssd(raid, i);
+
+            ssd = raid->connected_ssd[i];
+
+            // Interface layer
+            interface_flag = raid_ssd_get_requests(i, ssd, raid);
+
+            // Buffer layer
+            if(interface_flag == 1) {   
+                if (ssd->parameter->dram_capacity!=0) {
+                    buffer_management(ssd);  
+                    distribute(ssd); 
+                } else {
+                    no_buffer_distribute(ssd);
+                }
+            }
+
+            // FTL+FCL+Flash layer
+            process(ssd);
+            raid_ssd_trace_output(ssd);
+            
+            printf("end simulating disk %d\n", i);
         }
         
         // remove processed request from raid queue
         raid_clear_completed_request(raid);
-
 
     }
 
@@ -233,7 +311,7 @@ int raid_distribute_request(struct raid_info* raid, int64_t req_incoming_time, u
             disk_req_size = (raid->strip_size_block - strip_offset >= req_size) ? raid->strip_size_block - strip_offset : req_size;
 
             // add sub_request to request
-            printf("--> %u %u %u %u %u\n", disk_id, stripe_id, strip_id, strip_offset, disk_req_lsn);
+            printf("--> req distributed to ssd: %u %u %u %u %u\n", disk_id, stripe_id, strip_id, strip_offset, disk_req_lsn);
             raid_subreq = (struct raid_sub_request*)malloc(sizeof(struct raid_sub_request));
             alloc_assert(raid_subreq, "raid_sub_request");
             memset(raid_subreq,0,sizeof(struct raid_sub_request));
@@ -250,13 +328,12 @@ int raid_distribute_request(struct raid_info* raid, int64_t req_incoming_time, u
         if (raid->request_queue == NULL) {
             raid->request_queue = raid_req;
             raid->request_tail = raid->request_queue;
-            raid->request_queue_length++;
         } else {
             raid_req->prev_node = raid->request_tail;
             raid->request_tail->next_node = raid_req;
             raid->request_tail = raid_req;
-            raid->request_queue_length++;
         }
+        raid->request_queue_length++;
     }
 
     return R_DIST_SUCCESS;
@@ -265,18 +342,21 @@ int raid_distribute_request(struct raid_info* raid, int64_t req_incoming_time, u
 int raid_clear_completed_request(struct raid_info* raid) {
     struct raid_request* req_pointer, *temp_r;
     struct raid_sub_request* subreq_pointer, *temp_sr;
-    int is_all_completed = 1;
+    int is_all_completed = 1, is_need_move_forward = 1;
 
     req_pointer = raid->request_queue;
     while (req_pointer != NULL){
-        is_all_completed = 1;
+        printf("  [x] %lld\n", req_pointer->begin_time);
+        is_all_completed = is_need_move_forward = 1;
         subreq_pointer = req_pointer->subs;
         while (subreq_pointer != NULL){
+            printf("    [-] %d %d %lld\n", subreq_pointer->disk_id, subreq_pointer->current_state, subreq_pointer->begin_time);
             if (subreq_pointer->current_state != R_SR_COMPLETE) is_all_completed = 0;
             subreq_pointer = subreq_pointer->next_node;
         }
 
         if (is_all_completed) {
+            printf(">>>>>> deleting req : %lld [%d]\n", req_pointer->begin_time, raid->request_queue_length);
             subreq_pointer = req_pointer->subs;
             while (subreq_pointer != NULL){
                 temp_sr = subreq_pointer;
@@ -284,14 +364,25 @@ int raid_clear_completed_request(struct raid_info* raid) {
                 free(temp_sr);
             }
 
-            if (raid->request_queue == req_pointer) {  // first element in queue
-                raid->request_queue = NULL;
-                raid->request_tail = NULL;
+            if (raid->request_queue_length == 1) {              // the only element in queue
+                free(req_pointer);
+                req_pointer = NULL;
+                raid->request_queue = raid->request_tail = NULL;
+                is_need_move_forward = 0;
+            } else if (raid->request_queue == req_pointer) {    // first element in queue with multiple elements
+                raid->request_queue = req_pointer->next_node;
+                raid->request_queue->prev_node = NULL;
                 free(req_pointer);
                 req_pointer = raid->request_queue;
-            } else {
+                is_need_move_forward = 0;
+            } else {                                            // middle or last element in queue
                 temp_r = req_pointer->prev_node;
-                (req_pointer->prev_node)->next_node = req_pointer->next_node;
+                temp_r->next_node = req_pointer->next_node;
+                if (raid->request_tail == req_pointer) {
+                    raid->request_tail = req_pointer->prev_node;
+                } else {
+                    (req_pointer->next_node)->prev_node = temp_r;
+                }
                 free(req_pointer);
                 req_pointer = temp_r;
             }
@@ -299,26 +390,27 @@ int raid_clear_completed_request(struct raid_info* raid) {
             raid->request_queue_length -= 1;
         }
 
-        if (req_pointer != NULL)
+        if (req_pointer != NULL && is_need_move_forward)
             req_pointer = req_pointer->next_node;
     }
     return 0;
 }
 
 int raid_simulate_ssd(struct raid_info* raid, int disk_id) {
-    // iterate raid request queue, find any request for this disk
+    // iterate raid request queue, find first incoming request for this disk
     struct ssd_info* ssd;
     struct raid_request* req_pointer;
     struct raid_sub_request* subreq_pointer;
-    int flag = 0, err;
+    int flag = 0, err = ERROR, is_found=0;
 
     ssd = raid->connected_ssd[disk_id];
     req_pointer = raid->request_queue;
-    while(req_pointer != NULL){
+    while(req_pointer != NULL && !is_found){
         subreq_pointer = req_pointer->subs;
-        while(subreq_pointer != NULL){
+        while(subreq_pointer != NULL && !is_found){
             if (subreq_pointer->disk_id == disk_id && subreq_pointer->current_state == R_SR_PENDING) {
-                // insert to ssd queue
+                is_found = 1;
+                // insert to ssd queue 
                 err = raid_ssd_interface(ssd, subreq_pointer);
                 if (err != ERROR) subreq_pointer->current_state = R_SR_PROCESS;
             }
@@ -328,8 +420,9 @@ int raid_simulate_ssd(struct raid_info* raid, int disk_id) {
     }
     
     if (err != ERROR) {
+        printf(">>>>> Req inserted to ssd queue %lld!\n", ssd->request_tail->begin_time);
         if (ssd->parameter->dram_capacity!=0) {
-            buffer_management(ssd);
+            buffer_management(ssd);;
             distribute(ssd);
         } else {
             no_buffer_distribute(ssd);
@@ -342,15 +435,126 @@ int raid_simulate_ssd(struct raid_info* raid, int disk_id) {
     return 0;
 }
 
+int raid_ssd_get_requests(int disk_id, struct ssd_info *ssd, struct raid_info *raid) {
+    struct raid_request *rreq;
+    struct raid_sub_request *rsreq;
+    struct request *ssd_request;
+    int is_found = 0;
+
+    unsigned int req_lsn=0;
+    int req_device, req_size, req_ope, large_lsn;
+    int64_t req_time = 0;
+    int64_t nearest_event_time;
+
+    rreq = raid->request_queue;
+
+    // get request for this disk from raid req queue
+    while (rreq != NULL && !is_found) {
+        rsreq = rreq->subs;
+        while (rsreq != NULL) {
+            if (rsreq->disk_id == disk_id && rsreq->current_state == R_SR_PENDING) {
+                is_found = 1;
+                break;
+            }
+            rsreq = rsreq->next_node;
+        }
+        rreq = rreq->next_node;
+    }
+
+    // no request for this disk
+    if (rsreq == NULL) return 0;
+
+    // insert this request to requst queue in ssd
+    req_device = disk_id;
+    req_time = rsreq->begin_time;
+    req_lsn = rsreq->lsn;
+    req_size = rsreq->size;
+    req_ope = rsreq->operation;
+
+    if (req_device < 0 || req_size < 0 || req_lsn < 0 || req_ope < 0) {
+        printf("Error! wrong io request from raid controller\n");
+        exit(100);
+    }
+
+    large_lsn=(int)((ssd->parameter->subpage_page*ssd->parameter->page_block*ssd->parameter->block_plane*ssd->parameter->plane_die*ssd->parameter->die_chip*ssd->parameter->chip_num)*(1-ssd->parameter->overprovide));
+    req_lsn = req_lsn%large_lsn;
+    nearest_event_time=find_nearest_event(ssd);
+
+    if (nearest_event_time==MAX_INT64) {
+        ssd->current_time = req_time;
+    } else {
+        if (nearest_event_time < req_time) {
+            if (ssd->current_time <= nearest_event_time) ssd->current_time = nearest_event_time;
+            return -1;
+        } else {
+            if (ssd->request_queue_length>=ssd->parameter->queue_length) {
+                ssd->current_time = nearest_event_time;
+                return -1;
+            } else {
+                ssd->current_time = req_time;
+            }
+        }
+    }
+
+    if (req_time < 0) {
+        printf("Error! wrong io request's incoming time\n");
+        exit(100);
+    }
+
+    ssd_request = (struct request*) malloc(sizeof(struct request));
+    alloc_assert(ssd_request, "ssd_request");
+    memset(ssd_request, 0, sizeof(struct request));
+
+    ssd_request->time = req_time;
+    ssd_request->lsn = req_lsn;
+    ssd_request->size = req_size;
+    ssd_request->operation = req_ope;
+    ssd_request->begin_time = req_time;
+    ssd_request->response_time = 0;	
+    ssd_request->energy_consumption = 0;	
+    ssd_request->next_node = NULL;
+    ssd_request->distri_flag = 0;
+    ssd_request->subs = NULL;
+    ssd_request->need_distr_flag = NULL;
+    ssd_request->complete_lsn_count=0;
+    ssd_request->subreq_on_raid = rsreq;
+
+    // add to ssd queue
+    if (ssd->request_queue == NULL) {
+        ssd->request_queue = ssd_request;
+    } else {
+        (ssd->request_tail)->next_node = ssd_request;
+    }
+    ssd->request_tail = ssd_request;
+    ssd->request_queue_length++;
+
+    // update ssd statistics
+    if (ssd_request->lsn > ssd->max_lsn) ssd->max_lsn = ssd_request->lsn;
+    if (ssd_request->lsn < ssd->min_lsn) ssd->min_lsn = ssd_request->lsn;
+    if (ssd_request->operation == WRITE) ssd->ave_write_size=(ssd->ave_write_size*ssd->write_request_count+ssd_request->size)/(ssd->write_request_count+1);
+    if (ssd_request->operation == READ) ssd->ave_read_size=(ssd->ave_read_size*ssd->read_request_count+ssd_request->size)/(ssd->read_request_count+1);
+
+    return 1;
+}
+
 int raid_ssd_interface(struct ssd_info* ssd, struct raid_sub_request *subreq) {
     int large_lsn;
     int64_t nearest_event_time;
     struct request *ssd_request;
     
+    nearest_event_time = find_nearest_event(ssd);
+    
+    // only update ssd->current time if subreq is null
+    // this is used only after the "tracefile" is eof
+    // until the request queue in this ssd is empty
+    if (subreq == NULL) {
+        ssd->current_time = nearest_event_time;
+        return SUCCESS;
+    }
+
     large_lsn = (int)((ssd->parameter->subpage_page*ssd->parameter->page_block*ssd->parameter->block_plane*ssd->parameter->plane_die*ssd->parameter->die_chip*ssd->parameter->chip_num)*(1-ssd->parameter->overprovide));
     subreq->lsn = subreq->lsn % large_lsn;
 
-    nearest_event_time = find_nearest_event(ssd);
     if (nearest_event_time == MAX_INT64) {
         ssd->current_time = subreq->begin_time;
     } else {
@@ -365,7 +569,6 @@ int raid_ssd_interface(struct ssd_info* ssd, struct raid_sub_request *subreq) {
             }
         }
     }
-
 
     ssd_request = (struct request*) malloc(sizeof(struct request));
     alloc_assert(ssd_request, "ssd_request");
@@ -418,6 +621,7 @@ void raid_ssd_trace_output(struct ssd_info* ssd) {
         latency = 0;
         if (req->response_time != 0) {
             latency = req->response_time - req->time;
+            printf("%16lld %10d %6d %2d %16lld %16lld %10lld %2d %10lld\n",req->time,req->lsn, req->size, req->operation, req->begin_time, req->response_time, latency, req->meet_gc_flag, req->meet_gc_remaining_time);
             fprintf(ssd->outputfile,"%16lld %10d %6d %2d %16lld %16lld %10lld %2d %10lld\n",req->time,req->lsn, req->size, req->operation, req->begin_time, req->response_time, latency, req->meet_gc_flag, req->meet_gc_remaining_time); fflush(ssd->outputfile);
             fprintf(ssd->outfile_io,"%16lld %10d %6d %2d %16lld %16lld %10lld %2d %10lld\n",req->time,req->lsn, req->size, req->operation, req->begin_time, req->response_time, latency, req->meet_gc_flag, req->meet_gc_remaining_time); fflush(ssd->outfile_io);
             if (req->operation == WRITE) {
@@ -463,6 +667,7 @@ void raid_ssd_trace_output(struct ssd_info* ssd) {
             if (is_all_sub_completed) {
                 latency = end_time-req->time;
                 
+                printf("%16lld %10d %6d %2d %16lld %16lld %10lld %2d %10lld\n",req->time,req->lsn, req->size, req->operation, req->begin_time, req->response_time, latency, req->meet_gc_flag, req->meet_gc_remaining_time);
                 fprintf(ssd->outputfile,"%16lld %10d %6d %2d %16lld %16lld %10lld %2d %10lld\n",req->time,req->lsn, req->size, req->operation, req->begin_time, req->response_time, latency, req->meet_gc_flag, req->meet_gc_remaining_time);
                 fflush(ssd->outputfile);
                 fprintf(ssd->outfile_io,"%16lld %10d %6d %2d %16lld %16lld %10lld %2d %10lld\n",req->time,req->lsn, req->size, req->operation, req->begin_time, req->response_time, latency, req->meet_gc_flag, req->meet_gc_remaining_time);
@@ -511,7 +716,6 @@ void raid_ssd_trace_output(struct ssd_info* ssd) {
 
         }
     }
-    
 
     return;
 }
@@ -549,6 +753,27 @@ void ssd_delete_request_from_queue(struct ssd_info* ssd, struct request *req) {
     free(req);
     ssd->request_queue_length--;
     return;
+}
+
+void raid_print_req_queue(struct raid_info* raid) {
+    struct raid_request* rreq;
+    struct raid_sub_request *srreq;
+    int rreq_id = 0;
+
+    printf(" ============ RAID REQUEST QUEUE ============ \n");
+    rreq = raid->request_queue;
+    while (rreq != NULL) {
+        printf(" [%d] %lld %lld %u %u %u\n", rreq_id, rreq->begin_time, rreq->response_time, rreq->lsn, rreq->size, rreq->operation);
+        srreq = rreq->subs;
+        while (srreq != NULL) {
+            printf("    %u %u %lld %lld\n", srreq->disk_id, srreq->current_state, srreq->begin_time, srreq->complete_time);
+            srreq = srreq->next_node;
+        }
+        rreq = rreq->next_node;
+        rreq_id++;
+    }
+    printf(" ============ RAID REQUEST QUEUE ============ \n");
+
 }
 
 struct raid_info* simulate_raid5(struct raid_info* raid) {

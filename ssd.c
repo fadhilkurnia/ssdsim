@@ -799,6 +799,7 @@ void trace_output(struct ssd_info* ssd){
 
             if (flag == 1)
             {		
+                req->response_time = end_time;
                 latency = end_time-req->time;
                 fprintf(ssd->outputfile,"%16lld %10d %6d %2d %16lld %16lld %10lld %2d %10lld\n",req->time,req->lsn, req->size, req->operation, req->begin_time, req->response_time, latency, req->meet_gc_flag, req->meet_gc_remaining_time);
                 fflush(ssd->outputfile);
