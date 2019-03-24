@@ -90,7 +90,7 @@ def main(argv):
     main_graph.set_title("RAID5 Read Latency CDF")
     main_graph.set_xlabel('Read Latency (ms)')
     main_graph.set_ylabel('CDF')
-    main_graph.set_ylim([0.85, 1.001])
+    main_graph.set_ylim([0.75, 1.001])
     for simid, simulation_data in enumerate(raid_simulation_data):
         nrequest = len(simulation_data["raid_data"])
         x = np.sort(simulation_data["raid_data"])

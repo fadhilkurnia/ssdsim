@@ -179,12 +179,15 @@ def breakTracefile(simulation_timestamp, infile, ndisk, segment_size):
 
     return outtracesname
 
-def runRAID(simulation_timestamp, tracefiles_loc):
+def runRAID(simulation_timestamp, tracefiles_loc, is_gcsync = False, gcsync_time_window = 500000000):
     raidlog = open("raw/raid_"+simulation_timestamp+".log", "w")
+    num_disk = len(tracefiles_loc)
 
-    for intracefile in tracefiles_loc:
+    for diskid, intracefile in enumerate(tracefiles_loc):
         timestamp = getCurrentTimestamp()
         command = "./ssd --timestamp "+timestamp+" "+intracefile
+        if is_gcsync:
+            command = "./ssd --gcsync --ndisk "+str(num_disk)+" --diskid  "+str(diskid)+" --gc_time_window "+str(gcsync_time_window)+" --timestamp "+timestamp+" "+intracefile
         print(command)
 
         os.system(command)
