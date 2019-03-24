@@ -61,10 +61,13 @@ sudo chmod +x raid5
 
 To run the simulation:
 ```
-./raid5 <ndisk> <tracefile/your_trace_file.trace>
+./raid5 <ndisk> <tracefile/your_trace_file.trace> [--gcsync] [--gcsync_time_window GCSYNC_TIME_WINDOW]
 
 example:
 ./raid5 4 tracefile/TPCC.trace
+
+# to running the simulation with GCSync mode
+./raid5 4 tracefile/TPCC.trace --gcsync --gcsync_time_window 500000000
 ```
 
 The script will split the given tracefile into multiple tracefiles, each for one SSD in the RAID simulation. After splitting the tracefile, the script will run the simulation in each SSD using previously generated tracefile for that SSD. All the directory containing the statistics from each SSD can be seen at the log file generated from this script. (e.g `raw/raid_20181219_180000`)
