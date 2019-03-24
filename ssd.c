@@ -69,14 +69,19 @@ void simulate_ssd(struct user_args* uargs) {
 int parse_user_args(int argc, char *argv[], struct user_args* uargs) {
     char **positionals;
     int raidtype = -1;
-    int ndisk = 0;
+    int ndisk = 0, diskid = 0;
+    int64_t gc_time_window = 0;
 
     static struct option long_options[] = {
         {"raid0", no_argument, 0, '0'},
         {"raid5", no_argument, 0, '5'},
+        {"gcsync", no_argument, 0, 's'},
         {"ndisk", required_argument, 0, 'n'},
-        {"timestamp", required_argument, 0, 't'},
-        {"parameter", required_argument, 0, 'p'},
+
+        {"timestamp", required_argument, 0, 't'},       // simulation timestamp, for logging purpose
+        {"diskid", required_argument, 0, 'i'},          // for gcsync purpose
+        {"gc_time_window", required_argument, 0, 'g'},  // for gcsync purpose, in ns
+        {"parameter", required_argument, 0, 'p'},       // parameter file
         {0, 0, 0, 0}
     };
     
@@ -101,6 +106,9 @@ int parse_user_args(int argc, char *argv[], struct user_args* uargs) {
                 uargs->is_raid = 1;
                 uargs->raid_type = RAID_0;
                 break;
+            case 's':
+                uargs->is_gcsync = 1;
+                break;
             case 'n':
                 ndisk = atoi(optarg);
                 if (ndisk == 0) {
@@ -111,6 +119,22 @@ int parse_user_args(int argc, char *argv[], struct user_args* uargs) {
                 break;
             case 't':
                 strcpy(uargs->simulation_timestamp, optarg);
+                break;
+            case 'i':
+                diskid = atoi(optarg);
+                if (diskid < 0) {
+                    printf("Error! wrong diskid, it must be >= 0, but get %d!\n", diskid);
+                    return -1;
+                }
+                uargs->diskid = diskid;
+                break;
+            case 'g':
+                gc_time_window = atoll(optarg);
+                if (gc_time_window < 0) {
+                    printf("Error! wrong gc_time_window, it must be > 0, but get %lld!\n", gc_time_window);
+                    return -1;
+                }
+                uargs->gc_time_window = gc_time_window;
                 break;
             case 'p':
                 strcpy(uargs->parameter_filename, optarg);
@@ -135,6 +159,10 @@ int parse_user_args(int argc, char *argv[], struct user_args* uargs) {
     }
     if (uargs->is_raid && uargs->num_disk < 2) {
         printf("Error! RAID simulation needs at least 2 disks\n");
+        return -1;
+    }
+    if (uargs->is_gcsync && !uargs->gc_time_window && !uargs->num_disk) {
+        printf("Error! GCSync mode need ndisk, diskid, and gc_time_window!\n");
         return -1;
     }
 
@@ -192,6 +220,14 @@ struct ssd_info *initialize_ssd(struct ssd_info* ssd, struct user_args* uargs) {
 
     // Assign tracefilename
     strcpy(ssd->tracefilename, uargs->trace_filename);
+
+    // Assign all var related to GCSync
+    if (uargs->is_gcsync) {
+        ssd->ndisk = uargs->num_disk;
+        ssd->diskid = uargs->diskid;
+        ssd->is_gcsync = 1;
+        ssd->gc_time_window = uargs->gc_time_window;
+    }
 
     free(current_time);
     return ssd;
