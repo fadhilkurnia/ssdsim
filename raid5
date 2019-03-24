@@ -7,7 +7,7 @@
 # - run the raid simulation using all the generated tracefiles
 # - after finish, generate a single log indicating where is the statistics for every ssd in the raid simulation
 
-import sys, math, os, datetime
+import sys, math, os, datetime, argparse
 
 IO_READ = 1
 IO_WRITE = 0
@@ -19,12 +19,16 @@ AVG_PARITY_CALCULATION_TIME = 1000  # in ns
 
 # python raid <num_disk> <tracefile>
 def main(argv):
-    
-    if len(argv) < 2:
-        raise ValueError('Require the number of disk and the original tracefile')
 
-    ndisk = int(argv[0])
-    tracefilename = argv[1]
+    parser = argparse.ArgumentParser(description='SSDSim RAID5 args.')
+    parser.add_argument('ndisk', type=int)
+    parser.add_argument('tracefilename', type=str)
+    parser.add_argument('--gcsync', action='store_true', default=False, help='Flag for activating GCSync mode')
+    parser.add_argument('--gcsync_time_window', type=int, default=500000000, help='GCSync time window in ns, default = 500ms')
+    args = parser.parse_args()
+
+    ndisk = args.ndisk
+    tracefilename = args.tracefilename
 
     raid_simulation_timestamp = getCurrentTimestamp()
 
@@ -32,7 +36,7 @@ def main(argv):
     raid_tracefiles_location = breakTracefile(raid_simulation_timestamp, tracefilename, ndisk, RAID_SEGMENT_SIZE)
 
     print("runing simulation")
-    runRAID(raid_simulation_timestamp, raid_tracefiles_location)
+    runRAID(raid_simulation_timestamp, raid_tracefiles_location, is_gcsync=args.gcsync, gcsync_time_window=args.gcsync_time_window)
 
     return
 
