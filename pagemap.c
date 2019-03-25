@@ -1274,6 +1274,7 @@ Status gc_for_channel(struct ssd_info *ssd, unsigned int channel)
     unsigned int current_state=0, next_state=0;
     long long next_state_predict_time=0;
     struct gc_operation *gc_node=NULL,*gc_p=NULL;
+    int64_t temp_int64;
 
     /*******************************************************************************************
      *查找每一个gc_node，获取gc_node所在的chip的当前状态，下个状态，下个状态的预计时间
@@ -1323,6 +1324,16 @@ Status gc_for_channel(struct ssd_info *ssd, unsigned int channel)
     if(gc_node==NULL)
     {
         return FAILURE;
+    }
+
+    // check whether gcsync active or not. If active check whether 
+    // GC can be started or not
+    if (ssd->is_gcsync == 1 && ssd->gc_time_window != 0 && ssd->ndisk != 0) {
+        temp_int64 = ssd->current_time / ssd->gc_time_window;
+        if (temp_int64 % ssd->ndisk != ssd->diskid) {
+            // Its not this disk turn to do GC
+            return FAILURE;
+        }
     }
     
     chip=gc_node->chip;
