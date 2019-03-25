@@ -69,13 +69,19 @@ void simulate_ssd(struct user_args* uargs) {
 int parse_user_args(int argc, char *argv[], struct user_args* uargs) {
     char **positionals;
     int raidtype = -1;
-    int ndisk = 0;
+    int ndisk = 0, diskid = 0;
+    int64_t gc_time_window = 0;
 
     static struct option long_options[] = {
         {"raid0", no_argument, 0, '0'},
         {"raid5", no_argument, 0, '5'},
+        {"gcsync", no_argument, 0, 's'},
         {"ndisk", required_argument, 0, 'n'},
-        {"parameter", required_argument, 0, 'p'},
+
+        {"timestamp", required_argument, 0, 't'},       // simulation timestamp, for logging purpose
+        {"diskid", required_argument, 0, 'i'},          // for gcsync purpose
+        {"gc_time_window", required_argument, 0, 'g'},  // for gcsync purpose, in ns
+        {"parameter", required_argument, 0, 'p'},       // parameter file
         {0, 0, 0, 0}
     };
     
@@ -100,6 +106,9 @@ int parse_user_args(int argc, char *argv[], struct user_args* uargs) {
                 uargs->is_raid = 1;
                 uargs->raid_type = RAID_0;
                 break;
+            case 's':
+                uargs->is_gcsync = 1;
+                break;
             case 'n':
                 ndisk = atoi(optarg);
                 if (ndisk == 0) {
@@ -107,6 +116,25 @@ int parse_user_args(int argc, char *argv[], struct user_args* uargs) {
                     return -1;
                 }
                 uargs->num_disk = ndisk;
+                break;
+            case 't':
+                strcpy(uargs->simulation_timestamp, optarg);
+                break;
+            case 'i':
+                diskid = atoi(optarg);
+                if (diskid < 0) {
+                    printf("Error! wrong diskid, it must be >= 0, but get %d!\n", diskid);
+                    return -1;
+                }
+                uargs->diskid = diskid;
+                break;
+            case 'g':
+                gc_time_window = atoll(optarg);
+                if (gc_time_window < 0) {
+                    printf("Error! wrong gc_time_window, it must be > 0, but get %lld!\n", gc_time_window);
+                    return -1;
+                }
+                uargs->gc_time_window = gc_time_window;
                 break;
             case 'p':
                 strcpy(uargs->parameter_filename, optarg);
@@ -137,6 +165,10 @@ int parse_user_args(int argc, char *argv[], struct user_args* uargs) {
         printf("Error! RAID simulation needs at least 2 disks\n");
         return -1;
     }
+    if (uargs->is_gcsync && !uargs->gc_time_window && !uargs->num_disk) {
+        printf("Error! GCSync mode need ndisk, diskid, and gc_time_window!\n");
+        return -1;
+    }
 
 
     return 0;
@@ -153,8 +185,12 @@ struct ssd_info *initialize_ssd(struct ssd_info* ssd, struct user_args* uargs) {
     char logdirname[60];
 
     // Prepare log directory for this ssd
-    current_time = (char*) malloc(sizeof(char)*30);
-    get_current_time(current_time);
+    current_time = (char*) malloc(sizeof(char)*16);
+    if (strlen(uargs->simulation_timestamp) != 0) {
+        strcpy(current_time, uargs->simulation_timestamp);
+    } else {
+        get_current_time(current_time);
+    }
     strcpy(logdir, "raw/");
     strcat(logdir, current_time);
     if (0 != mkdir(logdir,0777)) {
@@ -188,6 +224,14 @@ struct ssd_info *initialize_ssd(struct ssd_info* ssd, struct user_args* uargs) {
 
     // Assign tracefilename
     strcpy(ssd->tracefilename, uargs->trace_filename);
+
+    // Assign all var related to GCSync
+    if (uargs->is_gcsync) {
+        ssd->ndisk = uargs->num_disk;
+        ssd->diskid = uargs->diskid;
+        ssd->is_gcsync = 1;
+        ssd->gc_time_window = uargs->gc_time_window;
+    }
 
     free(current_time);
     return ssd;
@@ -801,15 +845,15 @@ void trace_output(struct ssd_info* ssd){
             {		
                 req->response_time = end_time;
                 latency = end_time-req->time;
-                fprintf(ssd->outputfile,"%16lld %10d %6d %2d %16lld %16lld %10lld %2d %10lld\n",req->time,req->lsn, req->size, req->operation, req->begin_time, req->response_time, latency, req->meet_gc_flag, req->meet_gc_remaining_time);
+                fprintf(ssd->outputfile,"%16lld %10d %6d %2d %16lld %16lld %10lld %2d %10lld\n",req->time,req->lsn, req->size, req->operation, start_time, end_time, latency, req->meet_gc_flag, req->meet_gc_remaining_time);
                 fflush(ssd->outputfile);
-                fprintf(ssd->outfile_io,"%16lld %10d %6d %2d %16lld %16lld %10lld %2d %10lld\n",req->time,req->lsn, req->size, req->operation, req->begin_time, req->response_time, latency, req->meet_gc_flag, req->meet_gc_remaining_time);
+                fprintf(ssd->outfile_io,"%16lld %10d %6d %2d %16lld %16lld %10lld %2d %10lld\n",req->time,req->lsn, req->size, req->operation, start_time, end_time, latency, req->meet_gc_flag, req->meet_gc_remaining_time);
                 fflush(ssd->outfile_io);
                 if (req->operation == WRITE) {
-                    fprintf(ssd->outfile_io_write,"%16lld %10d %6d %2d %16lld %16lld %10lld %2d %10lld\n",req->time,req->lsn, req->size, req->operation, req->begin_time, req->response_time, latency, req->meet_gc_flag, req->meet_gc_remaining_time);
+                    fprintf(ssd->outfile_io_write,"%16lld %10d %6d %2d %16lld %16lld %10lld %2d %10lld\n",req->time,req->lsn, req->size, req->operation, start_time, end_time, latency, req->meet_gc_flag, req->meet_gc_remaining_time);
                     fflush(ssd->outfile_io_write);
                 } else {
-                    fprintf(ssd->outfile_io_read,"%16lld %10d %6d %2d %16lld %16lld %10lld %2d %10lld\n",req->time,req->lsn, req->size, req->operation, req->begin_time, req->response_time, latency, req->meet_gc_flag, req->meet_gc_remaining_time);
+                    fprintf(ssd->outfile_io_read,"%16lld %10d %6d %2d %16lld %16lld %10lld %2d %10lld\n",req->time,req->lsn, req->size, req->operation, start_time, end_time, latency, req->meet_gc_flag, req->meet_gc_remaining_time);
                     fflush(ssd->outfile_io_read);
                 }
 
@@ -1316,6 +1360,7 @@ void display_help()
 {
     printf("  usage: ssd [options] trace_file\n");
     printf("    options:\n");
+    printf("     --timestamp <time> \t 15 chars timestamp used for log directory name (e.g: 20190214_220000), the default is current time\n");
     printf("     --parameter <filename> \t parameter filename (default: page.parameter)\n");
     printf("     --raid0 \t\t\t run raid 0 simulation\n");
     printf("     --raid5 \t\t\t run raid 5 simulation\n");
