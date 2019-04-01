@@ -157,6 +157,10 @@ int parse_user_args(int argc, char *argv[], struct user_args* uargs) {
         printf("Error! RAID simulation requires number of disk (--ndisk)\n");
         return -1;
     }
+    if (uargs->raid_type == RAID_5 && uargs->num_disk < 3) {
+        printf("Error! RAID 5 simulation needs at least 3 disks\n");
+        return -1;
+    }
     if (uargs->is_raid && uargs->num_disk < 2) {
         printf("Error! RAID simulation needs at least 2 disks\n");
         return -1;
@@ -267,7 +271,6 @@ struct ssd_info *simulate(struct ssd_info *ssd)
         // Buffer layer
         if(flag == 1)
         {   
-            //printf("once\n");
             if (ssd->parameter->dram_capacity!=0)
             {
                 buffer_management(ssd);  
@@ -840,6 +843,7 @@ void trace_output(struct ssd_info* ssd){
 
             if (flag == 1)
             {		
+                req->response_time = end_time;
                 latency = end_time-req->time;
                 fprintf(ssd->outputfile,"%16lld %10d %6d %2d %16lld %16lld %10lld %2d %10lld\n",req->time,req->lsn, req->size, req->operation, start_time, end_time, latency, req->meet_gc_flag, req->meet_gc_remaining_time);
                 fflush(ssd->outputfile);
@@ -1019,8 +1023,6 @@ void statistic_output(struct ssd_info *ssd)
     fprintf(ssd->outputfile,"erase: %13u\n",erase);
     fflush(ssd->outputfile);
 
-    fclose(ssd->outputfile);
-
 
     fprintf(ssd->statisticfile,"\n");
     fprintf(ssd->statisticfile,"\n");
@@ -1062,7 +1064,6 @@ void statistic_output(struct ssd_info *ssd)
     fprintf(ssd->statisticfile,"erase: %13u\n",erase);
     fflush(ssd->statisticfile);
 
-    fclose(ssd->statisticfile);
 }
 
 
@@ -1388,7 +1389,7 @@ void prep_output_for_simulation(struct ssd_info *ssd)
 
 void close_file(struct ssd_info *ssd)
 {
-    if (ssd->tracefile) fclose(ssd->tracefile);
+    if (ssd->tracefile!=NULL) fclose(ssd->tracefile);
     if (ssd->outputfile) fclose(ssd->outputfile);
     if (ssd->statisticfile) fclose(ssd->statisticfile);
     if (ssd->statisticfile2) fclose(ssd->statisticfile2);

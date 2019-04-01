@@ -704,6 +704,7 @@ struct sub_request * creat_sub_request(struct ssd_info * ssd,unsigned int lpn,in
         free(sub);
         sub=NULL;
         printf("\nERROR ! Unexpected command.\n");
+        exit(100);
         return NULL;
     }
 
@@ -774,7 +775,8 @@ struct sub_request * find_read_sub_request(struct ssd_info * ssd, unsigned int c
             }
             else 
             {
-                printf("Error! Can't find the sub request.");
+                printf("Error! Can't find the sub request. {begin_time=%lld ope=%u}\n", sub->begin_time, sub->operation);
+                getchar();
             }
         }
     }
@@ -905,7 +907,6 @@ Status services_2_r_cmd_trans_and_complete(struct ssd_info * ssd)
     for(i=0;i<ssd->parameter->channel_number;i++)                                       /*这个循环处理不需要channel的时间(读命令已经到达chip，chip由ready变为busy)，当读请求完成时，将其从channel的队列中取出*/
     {
         sub=ssd->channel_head[i].subs_r_head;
-
         while(sub!=NULL)
         {
             if(sub->current_state==SR_R_C_A_TRANSFER)                                  /*读命令发送完毕，将对应的die置为busy，同时修改sub的状态; 这个部分专门处理读请求由当前状态为传命令变为die开始busy，die开始busy不需要channel为空，所以单独列出*/
@@ -918,7 +919,6 @@ Status services_2_r_cmd_trans_and_complete(struct ssd_info * ssd)
             }
             else if((sub->current_state==SR_COMPLETE)||((sub->next_state==SR_COMPLETE)&&(sub->next_state_predict_time<=ssd->current_time)))
             {	
-                printf("yap this state\n");
                 if(sub!=ssd->channel_head[i].subs_r_head)                             /*if the request is completed, we delete it from read queue */
                 {		
                     p->next_node=sub->next_node;						
@@ -951,7 +951,7 @@ Status services_2_r_cmd_trans_and_complete(struct ssd_info * ssd)
 Status services_2_r_data_trans(struct ssd_info * ssd,unsigned int channel,unsigned int * channel_busy_flag, unsigned int * change_current_time_flag)
 {
     int chip=0;
-    unsigned int die=0,plane=0,address_ppn=0,die1=0;
+    unsigned int die=0,plane=0,address_ppn=0,die1=0,sub_plane;
     struct sub_request * sub=NULL, * p=NULL,*sub1=NULL;
     struct sub_request * sub_twoplane_one=NULL, * sub_twoplane_two=NULL;
     struct sub_request * sub_interleave_one=NULL, * sub_interleave_two=NULL;
@@ -984,7 +984,7 @@ Status services_2_r_data_trans(struct ssd_info * ssd,unsigned int channel,unsign
                 if ((ssd->parameter->advanced_commands&AD_TWOPLANE_READ)==AD_TWOPLANE_READ)     /*有可能产生了two plane操作，在这种情况下，将同一个die上的两个plane的数据依次传出*/
                 {
                     sub_twoplane_one=sub;
-                    sub_twoplane_two=NULL;                                                      
+                    sub_twoplane_two=NULL;
                     /*为了保证找到的sub_twoplane_two与sub_twoplane_one不同，令add_reg_ppn=-1*/
                     ssd->channel_head[channel].chip_head[chip].die_head[die].plane_head[sub->location->plane].add_reg_ppn=-1;
                     sub_twoplane_two=find_read_sub_request(ssd,channel,chip,die);               /*在相同的channel,chip,die中寻找另外一个读子请求*/
@@ -1638,8 +1638,6 @@ struct ssd_info *process(struct ssd_info *ssd)
             }
 
             sub=ssd->channel_head[i].subs_r_head;                                        /*先处理读请求*/
-
-            // TODO: Fadhil, why this function change the flag into 1
             services_2_r_wait(ssd,i,&flag,&chg_cur_time_flag);                           /*处理处于等待状态的读子请求 | Handling read child requests in wait state*/
 
             if((flag==0)&&(ssd->channel_head[i].subs_r_head!=NULL))                      /*if there are no new read request and data is ready in some dies, send these data to controller and response this request*/		
