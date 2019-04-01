@@ -165,83 +165,6 @@ int64_t raid_find_nearest_event(struct raid_info* raid) {
     return nearest_time;
 }
 
-struct raid_info* simulate_raid0(struct raid_info* raid) {
-    int req_device_id, req_lsn, req_size, req_operation, flag, err, is_accept_req, interface_flag;
-    int64_t req_incoming_time, nearest_event_time;
-    struct ssd_info *ssd;
-    char buffer[200];
-    long filepoint;
-
-    // Run the RAID0 simulation untill all the request is tracefile is processed
-    while (flag != RAID_SIMULATION_FINISH) {
-
-        // Stop the simulation, if we reach the end of the tracefile and request queue is empty
-        if (feof(raid->tracefile) && raid->request_queue_length==0) {
-            flag = RAID_SIMULATION_FINISH;
-        }
-        
-        // Trying to get a request from tracefile
-        if (!feof(raid->tracefile)) {
-
-            // Read a request from tracefile
-            filepoint = ftell(raid->tracefile);
-            fgets (buffer, 200, raid->tracefile);
-            sscanf (buffer,"%lld %d %d %d %d", &req_incoming_time, &req_device_id, &req_lsn, &req_size, &req_operation);
-            is_accept_req = 1;
-
-            // Validating incoming request
-            if (req_device_id < 0 || req_lsn < 0 || req_size < 0 || !(req_operation == 0 || req_operation == 1)) {
-                printf("Error! wrong io request from tracefile (%lld %d %d %d %d)\n", req_incoming_time, req_device_id, req_lsn, req_size, req_operation);
-                exit(1);
-            }
-            if (req_incoming_time < 0) {
-                printf("Error! wrong incoming time! (%lld %d %d %d %d)\n", req_incoming_time, req_device_id, req_lsn, req_size, req_operation);
-                exit(1);
-            }
-            req_lsn = req_lsn%raid->max_lsn;
-            
-            // Check whether we can process this request or not
-            nearest_event_time = raid_find_nearest_event(raid);
-            #ifdef DEBUG
-            printf(" nearest time %lld %lld %lld %d\n", nearest_event_time, req_incoming_time, raid->current_time, raid->request_queue_length);
-            #endif
-            if (raid->request_queue_length >= RAID_REQUEST_QUEUE_CAPACITY) {
-                fseek(raid->tracefile,filepoint,0);
-                is_accept_req = 0;
-            }
-            if (nearest_event_time != MAX_INT64) raid->current_time = nearest_event_time;
-
-            if (is_accept_req) {
-                #ifdef DEBUG
-                printf("req inserted: %lld %d %d %d %d [%d]\n", req_incoming_time, req_device_id, req_lsn, req_size, req_operation, raid->request_queue_length);
-                #endif
-            
-                // insert request to raid rquest queue
-                // a single request can be forwarder to multiple disk
-                err = raid_distribute_request(raid, req_incoming_time, req_lsn, req_size, req_operation);
-                if (err == R_DIST_ERR) {
-                    fseek(raid->tracefile,filepoint,0);
-                    printf("Error! Distributing raid request failed!\n");
-                    // getchar();
-                    continue;
-                }
-            }
-        }
-
-        // simulate all the ssd in the raid, 
-        // this is corresponding to simulate(ssd_info *ssd) function in ssd.c
-        for(int i = 0; i < raid->num_disk; i++) {
-            raid_simulate_ssd(raid, i);
-        }
-        
-        // remove processed request from raid queue
-        raid_clear_completed_request(raid);
-
-    }
-
-    return raid;
-}
-
 // raid_distribute_request will distribute single IO request in raid level
 // to IO request in disk level. A single IO request can be splitted into multiple IO request
 // in disk level. This function return R_DIST_SUCCESS (0) if success and R_DIST_ERR (1) if not.
@@ -298,6 +221,16 @@ int raid_distribute_request(struct raid_info* raid, int64_t req_incoming_time, u
             raid->request_tail = raid_req;
         }
         raid->request_queue_length = raid->request_queue_length + 1;
+    
+    } else if (raid->raid_type==RAID_5) {
+
+        if (raid->request_queue_length == RAID_REQUEST_QUEUE_CAPACITY) {
+            return R_DIST_ERR;
+        }
+
+    } else {
+        printf("Error: unknown RAID type!\n");
+        exit(100);
     }
 
     return R_DIST_SUCCESS;
@@ -751,6 +684,83 @@ void raid_print_req_queue(struct raid_info* raid) {
     }
     printf(" ============ RAID REQUEST QUEUE ============ \n");
 
+}
+
+struct raid_info* simulate_raid0(struct raid_info* raid) {
+    int req_device_id, req_lsn, req_size, req_operation, flag, err, is_accept_req, interface_flag;
+    int64_t req_incoming_time, nearest_event_time;
+    struct ssd_info *ssd;
+    char buffer[200];
+    long filepoint;
+
+    // Run the RAID0 simulation untill all the request is tracefile is processed
+    while (flag != RAID_SIMULATION_FINISH) {
+
+        // Stop the simulation, if we reach the end of the tracefile and request queue is empty
+        if (feof(raid->tracefile) && raid->request_queue_length==0) {
+            flag = RAID_SIMULATION_FINISH;
+        }
+        
+        // Trying to get a request from tracefile
+        if (!feof(raid->tracefile)) {
+
+            // Read a request from tracefile
+            filepoint = ftell(raid->tracefile);
+            fgets (buffer, 200, raid->tracefile);
+            sscanf (buffer,"%lld %d %d %d %d", &req_incoming_time, &req_device_id, &req_lsn, &req_size, &req_operation);
+            is_accept_req = 1;
+
+            // Validating incoming request
+            if (req_device_id < 0 || req_lsn < 0 || req_size < 0 || !(req_operation == 0 || req_operation == 1)) {
+                printf("Error! wrong io request from tracefile (%lld %d %d %d %d)\n", req_incoming_time, req_device_id, req_lsn, req_size, req_operation);
+                exit(1);
+            }
+            if (req_incoming_time < 0) {
+                printf("Error! wrong incoming time! (%lld %d %d %d %d)\n", req_incoming_time, req_device_id, req_lsn, req_size, req_operation);
+                exit(1);
+            }
+            req_lsn = req_lsn%raid->max_lsn;
+            
+            // Check whether we can process this request or not
+            nearest_event_time = raid_find_nearest_event(raid);
+            #ifdef DEBUG
+            printf(" nearest time %lld %lld %lld %d\n", nearest_event_time, req_incoming_time, raid->current_time, raid->request_queue_length);
+            #endif
+            if (raid->request_queue_length >= RAID_REQUEST_QUEUE_CAPACITY) {
+                fseek(raid->tracefile,filepoint,0);
+                is_accept_req = 0;
+            }
+            if (nearest_event_time != MAX_INT64) raid->current_time = nearest_event_time;
+
+            if (is_accept_req) {
+                #ifdef DEBUG
+                printf("req inserted: %lld %d %d %d %d [%d]\n", req_incoming_time, req_device_id, req_lsn, req_size, req_operation, raid->request_queue_length);
+                #endif
+            
+                // insert request to raid rquest queue
+                // a single request can be forwarder to multiple disk
+                err = raid_distribute_request(raid, req_incoming_time, req_lsn, req_size, req_operation);
+                if (err == R_DIST_ERR) {
+                    fseek(raid->tracefile,filepoint,0);
+                    printf("Error! Distributing raid request failed!\n");
+                    // getchar();
+                    continue;
+                }
+            }
+        }
+
+        // simulate all the ssd in the raid, 
+        // this is corresponding to simulate(ssd_info *ssd) function in ssd.c
+        for(int i = 0; i < raid->num_disk; i++) {
+            raid_simulate_ssd(raid, i);
+        }
+        
+        // remove processed request from raid queue
+        raid_clear_completed_request(raid);
+
+    }
+
+    return raid;
 }
 
 struct raid_info* simulate_raid5(struct raid_info* raid) {
