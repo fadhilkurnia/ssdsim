@@ -165,63 +165,6 @@ int64_t raid_find_nearest_event(struct raid_info* raid) {
     return nearest_time;
 }
 
-// break_raid0_tracefile is unused function, ignore this function!
-void break_raid0_tracefile(struct raid_info* raid) {
-    long filepoint;
-    char buffer[200];
-    int64_t req_incoming_time, nearest_event_time;
-    int req_device_id, req_lsn, req_size, req_operation, flag, err, is_accept_req;
-    unsigned int disk_id, strip_id, stripe_id, stripe_offset, strip_offset, disk_req_lsn, disk_req_size;
-    int req_size_block;
-
-    FILE **tracefile;
-    tracefile = malloc(sizeof(FILE*) * raid->num_disk);
-    for(int i=0; i < raid->num_disk; i++) {
-        sprintf(buffer, "raid0disk%d.trace", i);
-        tracefile[i] = fopen(buffer, "w");
-        if(tracefile[i] == NULL) {
-            printf("the %d tracefile can't be opened\n", i);
-            exit(1);
-        }
-    }
-
-    while (!feof(raid->tracefile)) {
-        filepoint = ftell(raid->tracefile);
-        fgets (buffer, 200, raid->tracefile);
-        sscanf (buffer,"%lld %d %d %d %d", &req_incoming_time, &req_device_id, &req_lsn, &req_size, &req_operation);
-
-        printf("%lld %d %d %d %d\n", req_incoming_time, req_device_id, req_lsn, req_size, req_operation);
-        req_size_block = req_size;
-
-        while(req_size_block > 0){
-            stripe_id = req_lsn / raid->stripe_size_block;
-            stripe_offset = req_lsn - (stripe_id * raid->stripe_size_block);
-            strip_id = stripe_offset / raid->strip_size_block;
-            strip_offset = stripe_offset % raid->strip_size_block;
-            disk_id = strip_id;
-            disk_req_lsn = (stripe_id * raid->strip_size_block) + strip_offset;
-            disk_req_size = (raid->strip_size_block - strip_offset >= req_size) ? raid->strip_size_block - strip_offset : req_size;
-
-            // add sub_request to request
-            #ifdef DEBUG
-            printf(" ---> req distributed to ssd: %u %u %u %u %u\n", disk_id, stripe_id, strip_id, strip_offset, disk_req_lsn);
-            #endif
-            fprintf(tracefile[disk_id], "%lld 0 %u %u %u\n", req_incoming_time, disk_req_lsn, disk_req_size, req_operation);
-
-            req_size_block = req_size_block - (raid->strip_size_block - strip_offset);
-            if (req_size_block > 0) {
-                req_size = req_size_block;
-                req_lsn = req_lsn + req_size;
-            }
-        }
-
-    }
-
-    for(int i=0; i < raid->num_disk; i++) {
-        fclose(tracefile[i]);
-    }
-}
-
 struct raid_info* simulate_raid0(struct raid_info* raid) {
     int req_device_id, req_lsn, req_size, req_operation, flag, err, is_accept_req, interface_flag;
     int64_t req_incoming_time, nearest_event_time;
