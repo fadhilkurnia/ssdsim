@@ -1389,7 +1389,7 @@ void prep_output_for_simulation(struct ssd_info *ssd)
 
 void close_file(struct ssd_info *ssd)
 {
-    if (ssd->tracefile) fclose(ssd->tracefile);
+    if (ssd->tracefile!=NULL) fclose(ssd->tracefile);
     if (ssd->outputfile) fclose(ssd->outputfile);
     if (ssd->statisticfile) fclose(ssd->statisticfile);
     if (ssd->statisticfile2) fclose(ssd->statisticfile2);

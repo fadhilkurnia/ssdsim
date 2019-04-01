@@ -26,7 +26,7 @@ int64_t raid_find_nearest_event(struct raid_info*);
 int simulate_raid(struct user_args *);
 struct raid_info* simulate_raid0(struct raid_info*);
 struct raid_info* simulate_raid5(struct raid_info*);
-int raid_simulate_ssd(struct raid_info*, int);
+void raid_simulate_ssd(struct raid_info*, int);
 int raid_ssd_interface(struct ssd_info*, struct raid_sub_request*);
 int raid_ssd_get_requests(int disk_id, struct ssd_info *ssd, struct raid_info *raid);
 void raid_ssd_trace_output(struct ssd_info*);
@@ -50,7 +50,9 @@ struct raid_info {
     unsigned int strip_size_block;  // strip size in block
 
     char tracefilename[80];
+    char logfilename[80];
     FILE * tracefile;
+    FILE * logfile;
 
     int64_t current_time;
     unsigned int max_lsn;
