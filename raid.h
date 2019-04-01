@@ -37,8 +37,6 @@ int raid_clear_completed_request(struct raid_info*);
 void ssd_delete_request_from_queue(struct ssd_info*, struct request*);
 void raid_print_req_queue(struct raid_info*);
 
-void break_raid0_tracefile(struct raid_info*);
-
 // reference: https://www.snia.org/sites/default/files/SNIA_DDF_Technical_Position_v2.0.pdf
 // block and sector is interchangable here
 struct raid_info {
