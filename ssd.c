@@ -1023,8 +1023,6 @@ void statistic_output(struct ssd_info *ssd)
     fprintf(ssd->outputfile,"erase: %13u\n",erase);
     fflush(ssd->outputfile);
 
-    fclose(ssd->outputfile);
-
 
     fprintf(ssd->statisticfile,"\n");
     fprintf(ssd->statisticfile,"\n");
@@ -1066,7 +1064,6 @@ void statistic_output(struct ssd_info *ssd)
     fprintf(ssd->statisticfile,"erase: %13u\n",erase);
     fflush(ssd->statisticfile);
 
-    fclose(ssd->statisticfile);
 }
 
 

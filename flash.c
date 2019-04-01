@@ -775,7 +775,8 @@ struct sub_request * find_read_sub_request(struct ssd_info * ssd, unsigned int c
             }
             else 
             {
-                printf("Error! Can't find the sub request. [%lld %u]\n", sub->begin_time, sub->operation);
+                printf("Error! Can't find the sub request. {begin_time=%lld ope=%u}\n", sub->begin_time, sub->operation);
+                getchar();
             }
         }
     }
