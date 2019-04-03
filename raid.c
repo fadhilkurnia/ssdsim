@@ -228,6 +228,27 @@ int raid_distribute_request(struct raid_info* raid, int64_t req_incoming_time, u
             return R_DIST_ERR;
         }
 
+        raid_req = (struct raid_request*)malloc(sizeof(struct raid_request));
+        alloc_assert(raid_req, "raid_request");
+        memset(raid_req,0,sizeof(struct raid_request));
+        initialize_raid_request(raid_req, req_incoming_time, req_lsn, req_size, req_operation);
+
+        // handle read request
+        if (raid_req->operation == READ) {
+            while (req_size_block > 0) {
+
+                req_size_block--;
+            }
+        }
+
+        // handle write request, parity calculation
+        if (raid_req->operation == WRITE) {
+            while (req_size_block > 0) {
+
+                req_size_block--;
+            }
+        }
+
     } else {
         printf("Error: unknown RAID type!\n");
         exit(100);
@@ -764,9 +785,17 @@ struct raid_info* simulate_raid0(struct raid_info* raid) {
 }
 
 struct raid_info* simulate_raid5(struct raid_info* raid) {
-    printf("Work in progress for simualting raid 5 ...\n");
+    int flag;
+    
+    // Run the RAID0 simulation untill all the request is tracefile is processed
+    while (flag != RAID_SIMULATION_FINISH) {
+        
+        // Stop the simulation, if we reach the end of the tracefile and request queue is empty
+        if (feof(raid->tracefile) && raid->request_queue_length==0) {
+            flag = RAID_SIMULATION_FINISH;
+        }
+        
+    }
 
-    // controller's request queue
-    // get_raid_request(raid)
     return raid;
 }
