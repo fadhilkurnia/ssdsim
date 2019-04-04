@@ -59,7 +59,7 @@ def breakTracefile(simulation_timestamp, infile, ndisk, segment_size):
     blk_per_segment = segment_size / blk_size
     blk_per_stripe = blk_per_segment * (ndisk - 1)  # --- modf_1 --- ndisk -> (ndisk-1) (Sep.17 17:19)
 
-    # ======== Some Helper Functions ====================================
+    # ======== Begin Some Helper Functions ====================================
     def writeTrace(id, trace):
         if firstline[id] is False:
             outtraces[id].write("\n")
@@ -107,7 +107,7 @@ def breakTracefile(simulation_timestamp, infile, ndisk, segment_size):
         crnt_stripe_id = initial_stripe_id
         crnt_segment_id = initial_segment_id
         return
-    # ======== Some Helper Functions ====================================
+    # ======== End Some Helper Functions ====================================
 
     intrace = open(infile, "r")
     for line in intrace:
