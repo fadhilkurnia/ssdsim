@@ -49,9 +49,9 @@ struct raid_info* initialize_raid(struct raid_info* raid, struct user_args* uarg
 
         get_current_time(current_time);
         strcpy(uargs->simulation_timestamp, current_time);
+        uargs->diskid = i;
 
         raid->connected_ssd[i] = initialize_ssd(raid->connected_ssd[i], uargs);
-        raid->connected_ssd[i]->diskid = i;
         raid->connected_ssd[i] = initiation(raid->connected_ssd[i]);
         raid->connected_ssd[i] = make_aged(raid->connected_ssd[i]);
         raid->connected_ssd[i] = pre_process_page(raid->connected_ssd[i]);
@@ -96,16 +96,22 @@ struct raid_request* initialize_raid_request(struct raid_request* raid_req, int6
 
 struct raid_sub_request* initialize_raid_sub_request(struct raid_sub_request* raid_subreq, struct raid_request* raid_req, unsigned int disk_id, unsigned int stripe_id, unsigned int strip_id, unsigned int strip_offset, unsigned int lsn, unsigned int size, unsigned int operation) {
     struct raid_sub_request *ptr = NULL;
+    unsigned int state = R_SR_PENDING;
+
+    if (operation == WRITE_RAID) {
+        operation = WRITE;
+        state = R_SR_WAIT_PARITY;
+    }
 
     raid_subreq->disk_id = disk_id;
     raid_subreq->stripe_id = stripe_id;
     raid_subreq->strip_id = strip_id;
     raid_subreq->strip_offset = strip_offset;
     raid_subreq->begin_time = raid_req->begin_time;
-    raid_subreq->current_state = R_SR_PENDING;
+    raid_subreq->operation = operation;
+    raid_subreq->current_state = state;
     raid_subreq->lsn = lsn;
     raid_subreq->size = size;
-    raid_subreq->operation = operation;
     raid_subreq->next_node = NULL;
     if (raid_req->subs == NULL) {
         raid_req->subs = raid_subreq;
@@ -169,7 +175,7 @@ int64_t raid_find_nearest_event(struct raid_info* raid) {
 // to IO request in disk level. A single IO request can be splitted into multiple IO request
 // in disk level. This function return R_DIST_SUCCESS (0) if success and R_DIST_ERR (1) if not.
 int raid_distribute_request(struct raid_info* raid, int64_t req_incoming_time, unsigned int req_lsn, unsigned int req_size, unsigned int req_operation) {
-    unsigned int disk_id, strip_id, stripe_id, stripe_offset, strip_offset, disk_req_lsn, disk_req_size, strip_offset_block;
+    unsigned int disk_id, strip_id, stripe_id, stripe_offset, strip_offset, disk_req_lsn, disk_req_size;
     int req_size_block = req_size, parity_strip_id;
     struct raid_request* raid_req;
     struct raid_sub_request* raid_subreq;
@@ -188,13 +194,12 @@ int raid_distribute_request(struct raid_info* raid, int64_t req_incoming_time, u
         // TODO: Bugfix block addressing
         while(req_size_block > 0) {
             stripe_id = req_lsn / raid->stripe_size_block;
-            stripe_offset = req_lsn - (stripe_id * raid->stripe_size_block); // in byte
+            stripe_offset = req_lsn - (stripe_id * raid->stripe_size_block);
             strip_id = stripe_offset / raid->strip_size_block;
-            strip_offset = stripe_offset % raid->strip_size_block; // in byte
-            strip_offset_block = strip_offset/raid->block_size;
+            strip_offset = stripe_offset % raid->strip_size_block;
             disk_id = strip_id;
             disk_req_lsn = (stripe_id * raid->strip_size_block) + strip_offset;
-            disk_req_size = (raid->strip_size_block - strip_offset_block >= req_size) ? raid->strip_size_block - strip_offset_block : req_size;
+            disk_req_size = (raid->strip_size_block - strip_offset >= req_size) ? req_size : raid->strip_size_block - strip_offset;
 
             // add sub_request to request
             #ifdef DEBUG
@@ -208,7 +213,7 @@ int raid_distribute_request(struct raid_info* raid, int64_t req_incoming_time, u
             req_size_block = req_size_block - (raid->strip_size_block - strip_offset);
             if (req_size_block > 0) {
                 req_size = req_size_block;
-                req_lsn = req_lsn + req_size;
+                req_lsn = req_lsn + disk_req_size;
             }
         }
 
@@ -237,15 +242,15 @@ int raid_distribute_request(struct raid_info* raid, int64_t req_incoming_time, u
         // handle read request
         if (raid_req->operation == READ) {
             while (req_size_block > 0) {
-                stripe_id = req_lsn / (raid->stripe_size_block - raid->strip_size_block); // not include parity strip
-                stripe_offset = req_lsn - ((raid->stripe_size_block-raid->strip_size_block) * stripe_id);
+                stripe_id = req_lsn / (raid->strip_size_block*(raid->num_disk-1)); // not include parity strip
+                stripe_offset = req_lsn - (raid->strip_size_block * (raid->num_disk-1) * stripe_id);
                 strip_id = stripe_offset / raid->strip_size_block;
                 parity_strip_id = stripe_id % raid->num_disk;
                 if (parity_strip_id <= strip_id) strip_id++;
                 strip_offset = stripe_offset % raid->strip_size_block;
                 disk_id = strip_id;
                 disk_req_lsn = (stripe_id * raid->strip_size_block) + strip_offset;
-                disk_req_size = (raid->strip_size_block - strip_offset_block >= req_size) ? raid->strip_size_block - strip_offset_block : req_size;
+                disk_req_size = (raid->strip_size_block - strip_offset >= req_size_block) ? req_size_block : raid->strip_size_block - strip_offset;
 
                 // add sub_request to request
                 raid_subreq = (struct raid_sub_request*)malloc(sizeof(struct raid_sub_request));
@@ -255,8 +260,7 @@ int raid_distribute_request(struct raid_info* raid, int64_t req_incoming_time, u
 
                 req_size_block = req_size_block - disk_req_size;
                 if (req_size_block > 0) {
-                    req_size = req_size_block;
-                    req_lsn = req_lsn + req_size;
+                    req_lsn = req_lsn + disk_req_size;
                 }
             }
         }
@@ -264,10 +268,84 @@ int raid_distribute_request(struct raid_info* raid, int64_t req_incoming_time, u
         // handle write request, parity calculation
         if (raid_req->operation == WRITE) {
             while (req_size_block > 0) {
-                printf("Skipping write request!\n");
-                req_size_block=0;
+                #ifdef DEBUGRAID
+                printf(">> read old data %lld %d\n", req_incoming_time, req_size_block);
+                #endif
+                // reading old data
+                stripe_id = req_lsn / (raid->strip_size_block*(raid->num_disk-1)); // not include parity strip
+                stripe_offset = req_lsn - (raid->strip_size_block * (raid->num_disk-1) * stripe_id);
+                strip_id = stripe_offset / raid->strip_size_block;
+                parity_strip_id = stripe_id % raid->num_disk;
+                if (parity_strip_id <= strip_id) strip_id++;
+                strip_offset = stripe_offset % raid->strip_size_block;
+                disk_id = strip_id;
+                disk_req_lsn = (stripe_id * raid->strip_size_block) + strip_offset;
+                disk_req_size = (raid->strip_size_block - strip_offset >= req_size_block) ? req_size_block : raid->strip_size_block - strip_offset;
+
+                raid_subreq = (struct raid_sub_request*)malloc(sizeof(struct raid_sub_request));
+                alloc_assert(raid_subreq, "raid_sub_request");
+                memset(raid_subreq,0,sizeof(struct raid_sub_request));
+                initialize_raid_sub_request(raid_subreq, raid_req, disk_id, stripe_id, strip_id, strip_offset, disk_req_lsn, disk_req_size, READ);
+
+                req_size_block = req_size_block - disk_req_size;
+                if (req_size_block > 0) {
+                    req_lsn = req_lsn + disk_req_size;
+                }
+                
+                // reading old parity
+                if (req_size_block <= 0 || disk_id == raid->num_disk-2) {
+                    raid_subreq = (struct raid_sub_request*)malloc(sizeof(struct raid_sub_request));
+                    alloc_assert(raid_subreq, "raid_sub_request");
+                    memset(raid_subreq,0,sizeof(struct raid_sub_request));
+                    initialize_raid_sub_request(raid_subreq, raid_req, parity_strip_id, stripe_id, parity_strip_id, 0, disk_req_lsn, raid->strip_size_block, READ);
+                }
             }
+
+            // calculating new parity will be handled on raid5_finish_parity_calculation();
+            req_size_block = req_size;
+            while (req_size_block > 0) {
+                // writing new data
+                stripe_id = req_lsn / (raid->strip_size_block*(raid->num_disk-1)); // not include parity strip
+                stripe_offset = req_lsn - (raid->strip_size_block * (raid->num_disk-1) * stripe_id);
+                strip_id = stripe_offset / raid->strip_size_block;
+                parity_strip_id = stripe_id % raid->num_disk;
+                if (parity_strip_id <= strip_id) strip_id++;
+                strip_offset = stripe_offset % raid->strip_size_block;
+                disk_id = strip_id;
+                disk_req_lsn = (stripe_id * raid->strip_size_block) + strip_offset;
+                disk_req_size = (raid->strip_size_block - strip_offset >= req_size_block) ? req_size_block : raid->strip_size_block - strip_offset;
+
+                raid_subreq = (struct raid_sub_request*)malloc(sizeof(struct raid_sub_request));
+                alloc_assert(raid_subreq, "raid_sub_request");
+                memset(raid_subreq,0,sizeof(struct raid_sub_request));
+                initialize_raid_sub_request(raid_subreq, raid_req, disk_id, stripe_id, strip_id, strip_offset, disk_req_lsn, disk_req_size, WRITE_RAID);
+
+                req_size_block = req_size_block - disk_req_size;
+                if (req_size_block > 0) {
+                    req_lsn = req_lsn + disk_req_size;
+                }
+                
+                // writing new parity
+                if (req_size_block <= 0 || disk_id == raid->num_disk-2) {
+                    raid_subreq = (struct raid_sub_request*)malloc(sizeof(struct raid_sub_request));
+                    alloc_assert(raid_subreq, "raid_sub_request");
+                    memset(raid_subreq,0,sizeof(struct raid_sub_request));
+                    initialize_raid_sub_request(raid_subreq, raid_req, parity_strip_id, stripe_id, parity_strip_id, 0, disk_req_lsn, raid->strip_size_block, WRITE_RAID);
+                }
+            }
+
         }
+
+        // add request to raid request queue
+        if (raid->request_queue == NULL) {
+            raid->request_queue = raid_req;
+            raid->request_tail = raid->request_queue;
+        } else {
+            raid_req->prev_node = raid->request_tail;
+            raid->request_tail->next_node = raid_req;
+            raid->request_tail = raid_req;
+        }
+        raid->request_queue_length = raid->request_queue_length + 1;
 
     } else {
         printf("Error: unknown RAID type!\n");
@@ -630,6 +708,8 @@ void raid_ssd_trace_output(struct ssd_info* ssd) {
                 if(end_time-start_time==0) {
                     printf("the response time is 0?? \n");
                     exit(1);
+                } else {
+                    req->response_time=end_time;
                 }
 
                 // empty the sub on the req
@@ -707,6 +787,51 @@ void ssd_delete_request_from_queue(struct ssd_info* ssd, struct request *req) {
     free((void *)req);
     ssd->request_queue_length--;
     return;
+}
+
+// raid5_finish_parity_calculation will change the state of write request
+void raid5_finish_parity_calculation(struct raid_info* raid) {
+    struct raid_request* rreq;
+    struct raid_sub_request *srreq;
+    int is_all_read_finish, is_processing_write;
+    int64_t read_finish_time;
+
+    rreq = raid->request_queue;
+    while(rreq!=NULL){
+        if (rreq->operation==WRITE) {
+            is_all_read_finish = 1; is_processing_write = 0; read_finish_time = 0;
+            srreq = rreq->subs;
+
+            while(srreq!=NULL){
+                if (srreq->operation==READ && srreq->current_state!=R_SR_COMPLETE) {
+                    is_all_read_finish = 0;
+                    break;
+                }
+                if (srreq->operation==WRITE && srreq->current_state!=R_SR_WAIT_PARITY) {
+                    is_processing_write = 1;
+                    break;
+                }
+                if (srreq->operation==READ && srreq->current_state==R_SR_COMPLETE && read_finish_time<srreq->complete_time) {
+                    read_finish_time = srreq->complete_time;
+                }
+                srreq = srreq->next_node;
+            }
+
+            // if all read req is finished, we can continue our write req
+            if (is_all_read_finish && !is_processing_write) {
+                srreq = rreq->subs;
+                while(srreq!=NULL){
+                    if (srreq->operation==WRITE) {
+                        srreq->current_state=R_SR_PENDING;
+                        srreq->begin_time=read_finish_time+RAID5_PARITY_CALC_TIME_NS;
+                    }
+                    srreq = srreq->next_node;
+                }
+            }
+        }
+        rreq = rreq->next_node;
+    }
+    
 }
 
 void raid_print_req_queue(struct raid_info* raid) {
@@ -844,7 +969,7 @@ struct raid_info* simulate_raid5(struct raid_info* raid) {
             
             // Check whether we can process this request or not
             nearest_event_time = raid_find_nearest_event(raid);
-            #ifdef DEBUG
+            #ifdef DEBUGRAID
             printf(" nearest time %lld %lld %lld %d\n", nearest_event_time, req_incoming_time, raid->current_time, raid->request_queue_length);
             #endif
             if (raid->request_queue_length >= RAID_REQUEST_QUEUE_CAPACITY) {
@@ -854,7 +979,7 @@ struct raid_info* simulate_raid5(struct raid_info* raid) {
             if (nearest_event_time != MAX_INT64) raid->current_time = nearest_event_time;
 
             if (is_accept_req) {
-                #ifdef DEBUG
+                #ifdef DEBUGRAID
                 printf("req inserted: %lld %d %d %d %d [%d]\n", req_incoming_time, req_device_id, req_lsn, req_size, req_operation, raid->request_queue_length);
                 #endif
             
@@ -875,6 +1000,9 @@ struct raid_info* simulate_raid5(struct raid_info* raid) {
         for(int i = 0; i < raid->num_disk; i++) {
             raid_simulate_ssd(raid, i);
         }
+
+        // check parity calculation process in write req
+        raid5_finish_parity_calculation(raid);
         
         // remove processed request from raid queue
         raid_clear_completed_request(raid);

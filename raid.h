@@ -13,9 +13,14 @@
 #define R_DIST_ERR 1
 #define R_DIST_SUCCESS 0
 
-#define R_SR_PENDING 0
-#define R_SR_PROCESS 1
-#define R_SR_COMPLETE 2
+#define R_SR_WAIT_PARITY 0
+#define R_SR_PENDING 1
+#define R_SR_PROCESS 2
+#define R_SR_COMPLETE 3
+// #define DEBUGRAID
+
+#define RAID5_PARITY_CALC_TIME_NS 500000
+#define WRITE_RAID 3
 
 struct raid_info* initialize_raid(struct raid_info*, struct user_args*);
 struct raid_request* initialize_raid_request(struct raid_request* raid_req, int64_t req_incoming_time, unsigned int req_lsn, unsigned int req_size, unsigned int req_operation);
@@ -34,6 +39,7 @@ void raid_ssd_trace_output(struct ssd_info*);
 int raid_distribute_request(struct raid_info*, int64_t, unsigned int, unsigned int, unsigned int);
 int raid_clear_completed_request(struct raid_info*);
 
+void raid5_finish_parity_calculation(struct raid_info*);
 void ssd_delete_request_from_queue(struct ssd_info*, struct request*);
 void raid_print_req_queue(struct raid_info*);
 
