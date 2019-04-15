@@ -107,7 +107,7 @@ struct raid_sub_request* initialize_raid_sub_request(struct raid_sub_request* ra
     raid_subreq->stripe_id = stripe_id;
     raid_subreq->strip_id = strip_id;
     raid_subreq->strip_offset = strip_offset;
-    raid_subreq->begin_time = raid_req->begin_time;
+    raid_subreq->begin_time = raid_req->begin_time+RAID_SSD_LATENCY_NS;
     raid_subreq->operation = operation;
     raid_subreq->current_state = state;
     raid_subreq->lsn = lsn;
@@ -191,7 +191,6 @@ int raid_distribute_request(struct raid_info* raid, int64_t req_incoming_time, u
         memset(raid_req,0,sizeof(struct raid_request));
         initialize_raid_request(raid_req, req_incoming_time, req_lsn, req_size, req_operation);
 
-        // TODO: Bugfix block addressing
         while(req_size_block > 0) {
             stripe_id = req_lsn / raid->stripe_size_block;
             stripe_offset = req_lsn - (stripe_id * raid->stripe_size_block);
@@ -747,7 +746,7 @@ void ssd_delete_request_from_queue(struct ssd_info* ssd, struct request *req) {
 
     // update raid subrequest
     (req->subreq_on_raid)->current_state = R_SR_COMPLETE;
-    (req->subreq_on_raid)->complete_time = req->response_time;
+    (req->subreq_on_raid)->complete_time = req->response_time+RAID_SSD_LATENCY_NS;
 
     // req is first element of queue
     if (req == ssd->request_queue) {
@@ -823,7 +822,7 @@ void raid5_finish_parity_calculation(struct raid_info* raid) {
                 while(srreq!=NULL){
                     if (srreq->operation==WRITE) {
                         srreq->current_state=R_SR_PENDING;
-                        srreq->begin_time=read_finish_time+RAID5_PARITY_CALC_TIME_NS;
+                        srreq->begin_time=read_finish_time+RAID5_PARITY_CALC_TIME_NS+RAID_SSD_LATENCY_NS;
                     }
                     srreq = srreq->next_node;
                 }
