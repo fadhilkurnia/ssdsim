@@ -21,6 +21,7 @@ Hao Luo         2011/01/01        2.0           Change               luohao13568
 #include "pagemap.h"
 #include "flash.h"
 #include "ssd.h"
+#include "raid.h"
 
 
 /************************************************
@@ -1255,6 +1256,14 @@ int delete_gc_node(struct ssd_info *ssd, unsigned int channel,struct gc_operatio
         fprintf(ssd->outfile_gc, "%d \t %d \t %d \t %d \t%6.2f %8u %16lld %16lld %16lld\n", channel, gc_node->chip, gc_node->die, gc_node->plane, free_page_percent, moved_page, start_time, end_time, end_time-start_time);
         fflush(ssd->outfile_gc);
         ssd->num_gc++;
+        if (ssd->gclock_pointer->is_available == 0) {
+            ssd->gclock_pointer->end_time = gc_node->x_end_time;
+            ssd->gclock_pointer->holder_id = -1;
+            ssd->gclock_pointer->is_available = 1;
+        } else {
+            printf("Error harusnya gclock==1 \n");
+            getchar();
+        }
     }
     
     free(gc_node);
@@ -1332,6 +1341,18 @@ Status gc_for_channel(struct ssd_info *ssd, unsigned int channel)
         temp_int64 = ssd->current_time / ssd->gc_time_window;
         if (temp_int64 % ssd->ndisk != ssd->diskid) {
             // Its not this disk turn to do GC
+            return FAILURE;
+        }
+    }
+
+    // check whether gclock active or not. If active check whether 
+    // GC can be started or not
+    if (ssd->is_gclock == 1) {
+        if (ssd->gclock_pointer->is_available && ssd->gclock_pointer->end_time <= ssd->current_time) {
+            ssd->gclock_pointer->is_available=0;
+            ssd->gclock_pointer->begin_time=ssd->current_time;
+            ssd->gclock_pointer->holder_id=ssd->diskid;
+        } else {
             return FAILURE;
         }
     }
