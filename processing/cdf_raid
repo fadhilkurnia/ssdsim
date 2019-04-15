@@ -3,6 +3,8 @@ import sys
 import numpy as np
 from matplotlib import pyplot as plt
 
+RAID_SSD_LATENCY_MS = 0.1
+
 # assuming all io have different incoming time
 def main(argv):
     if len(argv) < 1:
@@ -62,7 +64,7 @@ def main(argv):
                 io_start = int(io_token[0])
                 io_ope = int(io_token[3])
                 io_latency = int(io_token[6])
-                io_latency = float(float(io_latency) / float(1000000))
+                io_latency = float(float(io_latency) / float(1000000)) # convert ns to ms
 
                 io_key = str(io_start) + "_" + str(io_ope)
 
@@ -94,6 +96,7 @@ def main(argv):
     for simid, simulation_data in enumerate(raid_simulation_data):
         nrequest = len(simulation_data["raid_data"])
         x = np.sort(simulation_data["raid_data"])
+        x = x + 2*RAID_SSD_LATENCY_MS # add round-trip raid-ssd
         y = np.arange(1, nrequest+1) / nrequest
         label = ''
         if simid == 0:
@@ -101,20 +104,21 @@ def main(argv):
         else:
             label = 'RAID5-TPCC-nogc'
         main_graph.plot(x, y, marker='.', markersize=1, linestyle='none', label=label)
-        print("nrequest: " + str(nrequest))
+        print("nrequest: " + str(nrequest) + ", avg latency: " + str(np.mean(x)) + " ms")
 
         for diskid, ssd_latency_data in enumerate(simulation_data["disk_data"]):
             nrequest = len(ssd_latency_data)
             x = np.sort(ssd_latency_data)
             y = np.arange(1, nrequest+1) / nrequest
             disk_graph[diskid].plot(x, y, marker='.', markersize=1, linestyle='none')
-            print("  disk " + str(diskid) + " nrequest: " + str(nrequest))
+            print("  disk " + str(diskid) + " nrequest: " + str(nrequest) + ", avg latency: " + str(np.mean(x)) + " ms")
 
     main_graph.legend(loc = 'lower right')
     plt.show()
 
     return
 
+# deprecated function
 def plot_graph(main_graph, disk_graph, iolog_file, ndisk, nogc = False):
 
     iodata = dict()
