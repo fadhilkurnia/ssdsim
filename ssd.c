@@ -1350,7 +1350,7 @@ void display_title()
     printf("  \\__ \\__ \\ (_| \\__ \\ | | | | | |  \n");
     printf("  |___/___/\\__,_|___/_|_| |_| |_|  \n");
     printf("                                   \n");
-    printf("  SSD internal simulation tool,\n  created by Yang Hu, v.2.0 \n\n");
+    printf("  SSD internal simulation tool,\n  created by Yang Hu, v.2.0. Modified by Fadhil Kurnia \n\n");
 }
 
 void display_help() 
