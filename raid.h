@@ -65,6 +65,16 @@ struct raid_info {
     unsigned int request_queue_length;
 
     struct ssd_info **connected_ssd;
+
+    // additional var for gc scheduling
+    struct gclock_raid_info *gclock;
+};
+
+struct gclock_raid_info {
+    int64_t begin_time;
+    int64_t end_time;
+    int is_available;
+    int holder_id;
 };
 
 // Request in RAID level

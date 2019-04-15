@@ -43,6 +43,15 @@ struct raid_info* initialize_raid(struct raid_info* raid, struct user_args* uarg
         raid->connected_ssd[i] = ssd_pointer;
     }
 
+    // prepare gc scheduling algorithm
+    if (uargs->is_gclock) {
+        raid->gclock = (struct gclock_raid_info*) malloc(sizeof(struct gclock_raid_info));
+        alloc_assert(raid->gclock, "gclock_info");
+        memset(raid->gclock,0,sizeof(struct ssd_info));
+        raid->gclock->is_available = 1;
+        raid->gclock->holder_id = -1;
+    }
+
     // initialize each ssd in raid
     for (int i = 0; i < raid->num_disk; i++) {
         printf("\nInitializing disk%d\n", i);
@@ -56,6 +65,10 @@ struct raid_info* initialize_raid(struct raid_info* raid, struct user_args* uarg
         raid->connected_ssd[i] = make_aged(raid->connected_ssd[i]);
         raid->connected_ssd[i] = pre_process_page(raid->connected_ssd[i]);
         raid->connected_ssd[i]->tracefile = NULL;
+
+        if (uargs->is_gclock) {
+            raid->connected_ssd[i]->gclock_pointer = raid->gclock;
+        }
 
         fprintf(raid->logfile, "raw/%s/\n", current_time);
     }
@@ -156,6 +169,9 @@ void free_raid_ssd_and_tracefile(struct raid_info* raid) {
         statistic_output(ssd);
         close_file(ssd);
         free(ssd);
+    }
+    if (raid->gclock != NULL) {
+        free(raid->gclock);
     }
     fclose(raid->tracefile);
 }

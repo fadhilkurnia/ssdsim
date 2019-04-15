@@ -128,12 +128,6 @@ struct user_args{
     int64_t gc_time_window;
 };
 
-struct gclock_info {
-    int64_t begin_time;
-    int64_t end_time;
-    int is_active;
-};
-
 struct ac_time_characteristics{
     int tPROG;     //program time
     int tDBSY;     //bummy busy time for two-plane program
@@ -174,9 +168,11 @@ struct ac_time_characteristics{
 
 struct ssd_info{ 
     int is_gcsync;
+    int is_gclock;
     int ndisk;
     int diskid;
     int64_t gc_time_window;
+    struct gclock_raid_info *gclock_pointer;
 
     double ssd_energy;                   //SSD的能耗，是时间和芯片数的函数,能耗因子
     int64_t current_time;                //记录系统时间
