@@ -1,7 +1,6 @@
 #define RAID_REQUEST_QUEUE_CAPACITY 20
 #define RAID_STRIPE_SIZE_BYTE 65536
 #define RAID_BLOCK_SIZE_BYTE 512
-#define RAID_TO_SSD_LATENCY_NS 500000000
 #define RAID_0 0
 #define RAID_5 5
 #define NDISK 3
@@ -19,7 +18,8 @@
 #define R_SR_COMPLETE 3
 // #define DEBUGRAID
 
-#define RAID5_PARITY_CALC_TIME_NS 500000
+#define RAID_SSD_LATENCY_NS 100000 // 100us
+#define RAID5_PARITY_CALC_TIME_NS 80000 // 80us
 #define WRITE_RAID 3
 
 struct raid_info* initialize_raid(struct raid_info*, struct user_args*);

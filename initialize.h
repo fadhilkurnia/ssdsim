@@ -122,8 +122,16 @@ struct user_args{
     int num_disk;
 
     int is_gcsync;
+    int is_gclock;
+    int is_gcdefer;
     int diskid;
     int64_t gc_time_window;
+};
+
+struct gclock_info {
+    int64_t begin_time;
+    int64_t end_time;
+    int is_active;
 };
 
 struct ac_time_characteristics{
