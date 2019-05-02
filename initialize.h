@@ -169,6 +169,7 @@ struct ac_time_characteristics{
 struct ssd_info{ 
     int is_gcsync;
     int is_gclock;
+    int is_gcdefer;
     int ndisk;
     int diskid;
     int64_t gc_time_window;

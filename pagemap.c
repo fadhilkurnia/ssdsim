@@ -1256,12 +1256,12 @@ int delete_gc_node(struct ssd_info *ssd, unsigned int channel,struct gc_operatio
         fprintf(ssd->outfile_gc, "%d \t %d \t %d \t %d \t%6.2f %8u %16lld %16lld %16lld\n", channel, gc_node->chip, gc_node->die, gc_node->plane, free_page_percent, moved_page, start_time, end_time, end_time-start_time);
         fflush(ssd->outfile_gc);
         ssd->num_gc++;
-        if (ssd->gclock_pointer->is_available == 0) {
-            ssd->gclock_pointer->end_time = gc_node->x_end_time;
+        if (ssd->gclock_pointer!=NULL && ssd->gclock_pointer->is_available == 0) {
+            ssd->gclock_pointer->end_time = gc_node->x_end_time+RAID_SSD_LATENCY_NS*2;
             ssd->gclock_pointer->holder_id = -1;
             ssd->gclock_pointer->is_available = 1;
-        } else {
-            printf("Error harusnya gclock==1 \n");
+        } else if (ssd->gclock_pointer!=NULL && ssd->gclock_pointer->is_available == 1) {
+            printf("Error! gclock availability supposed to be 0 \n");
             getchar();
         }
     }
@@ -1350,6 +1350,7 @@ Status gc_for_channel(struct ssd_info *ssd, unsigned int channel)
     if (ssd->is_gclock == 1) {
         if (ssd->gclock_pointer->is_available && ssd->gclock_pointer->end_time <= ssd->current_time) {
             ssd->gclock_pointer->is_available=0;
+            ssd->current_time+=RAID_SSD_LATENCY_NS*2;
             ssd->gclock_pointer->begin_time=ssd->current_time;
             ssd->gclock_pointer->holder_id=ssd->diskid;
         } else {
