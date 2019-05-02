@@ -252,6 +252,13 @@ struct ssd_info *initialize_ssd(struct ssd_info* ssd, struct user_args* uargs) {
         ssd->is_gclock = 1;
     }
 
+    // Assign all var related to GCDefer
+    if (uargs->is_gcdefer) {
+        ssd->ndisk = uargs->num_disk;
+        ssd->diskid = uargs->diskid;
+        ssd->is_gcdefer = 1;
+    }
+
     free(current_time);
     return ssd;
 }

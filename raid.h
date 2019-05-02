@@ -18,7 +18,7 @@
 #define R_SR_COMPLETE 3
 // #define DEBUGRAID
 
-#define RAID_SSD_LATENCY_NS 100000 // 100us
+#define RAID_SSD_LATENCY_NS 0 // 100us
 #define RAID5_PARITY_CALC_TIME_NS 80000 // 80us
 #define WRITE_RAID 3
 
