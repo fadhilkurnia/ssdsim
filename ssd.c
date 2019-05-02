@@ -76,6 +76,8 @@ int parse_user_args(int argc, char *argv[], struct user_args* uargs) {
         {"raid0", no_argument, 0, '0'},
         {"raid5", no_argument, 0, '5'},
         {"gcsync", no_argument, 0, 's'},
+        {"gclock", no_argument, 0, 'l'},
+        {"gcdefer", no_argument, 0, 'd'},
         {"ndisk", required_argument, 0, 'n'},
 
         {"timestamp", required_argument, 0, 't'},       // simulation timestamp, for logging purpose
@@ -106,6 +108,12 @@ int parse_user_args(int argc, char *argv[], struct user_args* uargs) {
                 uargs->is_raid = 1;
                 uargs->raid_type = RAID_0;
                 break;
+            case 'l':
+                uargs->is_gclock = 1;
+                break;
+            case 'd':
+                uargs->is_gcdefer = 1;
+                break;    
             case 's':
                 uargs->is_gcsync = 1;
                 break;
@@ -163,6 +171,10 @@ int parse_user_args(int argc, char *argv[], struct user_args* uargs) {
     }
     if (uargs->is_raid && uargs->num_disk < 2) {
         printf("Error! RAID simulation needs at least 2 disks\n");
+        return -1;
+    }
+    if (uargs->is_gcsync + uargs->is_gclock + uargs->is_gcdefer > 1) {
+        printf("Error! multiple gc scheduling algorithm activated!\n");
         return -1;
     }
     if (uargs->is_gcsync && !uargs->gc_time_window && !uargs->num_disk) {
@@ -224,13 +236,27 @@ struct ssd_info *initialize_ssd(struct ssd_info* ssd, struct user_args* uargs) {
 
     // Assign tracefilename
     strcpy(ssd->tracefilename, uargs->trace_filename);
-
+    
     // Assign all var related to GCSync
     if (uargs->is_gcsync) {
         ssd->ndisk = uargs->num_disk;
         ssd->diskid = uargs->diskid;
         ssd->is_gcsync = 1;
         ssd->gc_time_window = uargs->gc_time_window;
+    }
+
+    // Assign all var related to GCLock
+    if (uargs->is_gclock) {
+        ssd->ndisk = uargs->num_disk;
+        ssd->diskid = uargs->diskid;
+        ssd->is_gclock = 1;
+    }
+
+    // Assign all var related to GCDefer
+    if (uargs->is_gcdefer) {
+        ssd->ndisk = uargs->num_disk;
+        ssd->diskid = uargs->diskid;
+        ssd->is_gcdefer = 1;
     }
 
     free(current_time);
@@ -1350,7 +1376,7 @@ void display_title()
     printf("  \\__ \\__ \\ (_| \\__ \\ | | | | | |  \n");
     printf("  |___/___/\\__,_|___/_|_| |_| |_|  \n");
     printf("                                   \n");
-    printf("  SSD internal simulation tool,\n  created by Yang Hu, v.2.0 \n\n");
+    printf("  SSD internal simulation tool,\n  created by Yang Hu, v.2.0. Modified by Fadhil Kurnia \n\n");
 }
 
 void display_help() 
