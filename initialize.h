@@ -122,6 +122,8 @@ struct user_args{
     int num_disk;
 
     int is_gcsync;
+    int is_gclock;
+    int is_gcdefer;
     int diskid;
     int64_t gc_time_window;
 };
@@ -166,9 +168,12 @@ struct ac_time_characteristics{
 
 struct ssd_info{ 
     int is_gcsync;
+    int is_gclock;
+    int is_gcdefer;
     int ndisk;
     int diskid;
     int64_t gc_time_window;
+    struct gclock_raid_info *gclock_pointer;
 
     double ssd_energy;                   //SSD的能耗，是时间和芯片数的函数,能耗因子
     int64_t current_time;                //记录系统时间
