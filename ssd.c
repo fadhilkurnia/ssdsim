@@ -742,7 +742,7 @@ struct ssd_info *distribute(struct ssd_info *ssd)
  *Print out the relevant running results to the outputfile, the result here is mainly the running time
  **********************************************************************/
 void trace_output(struct ssd_info* ssd){
-    int flag = 1;	
+    int flag = 1; 
     int64_t start_time, end_time, latency = -1;
     struct request *req, *pre_node;
     struct sub_request *sub, *tmp;
@@ -975,6 +975,80 @@ void trace_output(struct ssd_info* ssd){
     }
 }
 
+float get_crt_free_block_prct(struct ssd_info* ssd) {
+    unsigned int free_block, block_total;
+    int i, j, k, l, m, n;
+
+    block_total = free_block = 0;
+    for (i = 0; i < ssd->parameter->channel_number; i++) {
+        block_total += ssd->parameter->block_plane*ssd->parameter->plane_die*ssd->parameter->die_chip*ssd->parameter->chip_channel[i];
+
+        for (j=0; j<ssd->parameter->chip_channel[i]; j++)
+            for (k=0; k<ssd->parameter->die_chip; k++)
+                for (l=0; l<ssd->parameter->plane_die; l++)
+                    for (m=0; m<ssd->parameter->block_plane; m++)
+                        if (ssd->channel_head[i].chip_head[j].die_head[k].plane_head[l].blk_head[m].free_page_num == ssd->parameter->page_block)
+                            free_block++;
+                    
+    }
+
+    return (float)free_block/(float)block_total*100.0;
+}
+
+float get_crt_free_page_prct(struct ssd_info* ssd) {
+    unsigned int free_page, page_total;
+    int i, j, k, l;
+
+    page_total = free_page = 0;
+    for (i = 0; i < ssd->parameter->channel_number; i++) {
+        page_total += ssd->parameter->page_block*ssd->parameter->block_plane*ssd->parameter->plane_die*ssd->parameter->die_chip*ssd->parameter->chip_channel[i];
+
+        for (j=0; j<ssd->parameter->chip_channel[i]; j++)
+            for (k=0; k<ssd->parameter->die_chip; k++)
+                for (l=0; l<ssd->parameter->plane_die; l++)
+                    free_page += ssd->channel_head[i].chip_head[j].die_head[k].plane_head[l].free_page;            
+    }
+
+    return (float)free_page/(float)page_total*100.0;
+}
+
+float get_crt_nonempty_free_page_prct(struct ssd_info* ssd) {
+    unsigned int free_page, page_total;
+    int i, j, k, l, m, n;
+
+    page_total = free_page = 0;
+    for (i = 0; i < ssd->parameter->channel_number; i++) {
+        page_total += ssd->parameter->page_block*ssd->parameter->block_plane*ssd->parameter->plane_die*ssd->parameter->die_chip*ssd->parameter->chip_channel[i];
+
+        for (j=0; j<ssd->parameter->chip_channel[i]; j++)
+            for (k=0; k<ssd->parameter->die_chip; k++)
+                for (l=0; l<ssd->parameter->plane_die; l++)
+                    for (m=0; m<ssd->parameter->block_plane; m++)
+                        if (ssd->channel_head[i].chip_head[j].die_head[k].plane_head[l].blk_head[m].free_page_num < ssd->parameter->page_block)
+                            free_page += ssd->channel_head[i].chip_head[j].die_head[k].plane_head[l].blk_head[m].free_page_num;
+    }
+
+    return (float)free_page/(float)page_total*100.0;
+}
+
+float get_crt_nonempty_free_block_prct(struct ssd_info* ssd) {
+    unsigned int free_page, page_total;
+    int i, j, k, l, m, n;
+
+    page_total = free_page = 0;
+    for (i = 0; i < ssd->parameter->channel_number; i++) {
+        page_total += ssd->parameter->block_plane*ssd->parameter->plane_die*ssd->parameter->die_chip*ssd->parameter->chip_channel[i];
+
+        for (j=0; j<ssd->parameter->chip_channel[i]; j++)
+            for (k=0; k<ssd->parameter->die_chip; k++)
+                for (l=0; l<ssd->parameter->plane_die; l++)
+                    for (m=0; m<ssd->parameter->block_plane; m++)
+                        if (ssd->channel_head[i].chip_head[j].die_head[k].plane_head[l].blk_head[m].free_page_num < ssd->parameter->page_block)
+                            free_page++;
+    }
+
+    return (float)free_page/(float)page_total*100.0;
+}
 
 /*******************************************************************************
  *statistic_output()函数主要是输出处理完一条请求后的相关处理信息。
@@ -1419,6 +1493,7 @@ void close_file(struct ssd_info *ssd)
     if (ssd->outputfile) fclose(ssd->outputfile);
     if (ssd->statisticfile) fclose(ssd->statisticfile);
     if (ssd->statisticfile2) fclose(ssd->statisticfile2);
+    if (ssd->outfile_gc) fclose(ssd->outfile_gc);
 }
 
 // Get current time in string for log directory name

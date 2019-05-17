@@ -100,6 +100,8 @@ Hao Luo         2011/01/01        2.0           Change               luohao13568
 
 #define PG_SUB 0xffffffff			
 
+#define GCSSYNC_BUFFER_TIME 65000000
+
 /*****************************************
  *函数结果状态代码
  *Status 是函数类型，其值是函数结果状态代码
