@@ -100,7 +100,7 @@ def main(argv):
         y = np.arange(1, nrequest+1) / nrequest
         label = ''
         if simid == 0:
-            label = 'RAID5-TPCC'
+            label = 'RAID5'
         else:
             label = 'RAID5-TPCC-nogc'
         main_graph.plot(x, y, marker='.', markersize=1, linestyle='none', label=label)
