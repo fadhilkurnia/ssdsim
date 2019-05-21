@@ -100,7 +100,7 @@ Hao Luo         2011/01/01        2.0           Change               luohao13568
 
 #define PG_SUB 0xffffffff			
 
-#define GCSSYNC_BUFFER_TIME 65000000
+#define GCSSYNC_BUFFER_TIME 0 //62800000
 
 /*****************************************
  *函数结果状态代码

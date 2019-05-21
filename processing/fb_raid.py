@@ -69,9 +69,9 @@ def main(argv):
 
         # plot graph for diskid
         plt.plot(data_block, label='fr_block disk'+str(diskid))
-        plt.plot(data_block_ne, label='fr_block_ne disk'+str(diskid))
+        # plt.plot(data_block_ne, label='fr_block_ne disk'+str(diskid))
         plt.plot(data_page, label='fr_pg disk'+str(diskid))
-        plt.plot(data_page_ne, label='fr_pg_ne disk'+str(diskid))
+        # plt.plot(data_page_ne, label='fr_pg_ne disk'+str(diskid))
 
     plt.grid()
     plt.legend()
@@ -79,7 +79,7 @@ def main(argv):
     # drawung the graph
     # plt.plot(data)
     plt.title("Free Page & Free Block on GCSync RAID5 (tw=100ms)")
-    plt.ylim(0,100)
+    plt.ylim(0,40)
     plt.ylabel("percentage (%)")
     plt.xlabel("time (s)")
     plt.show()
