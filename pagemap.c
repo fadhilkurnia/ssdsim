@@ -1349,11 +1349,11 @@ Status gc_for_channel(struct ssd_info *ssd, unsigned int channel)
     // check whether gclock active or not. If active check whether 
     // GC can be started or not
     if (ssd->is_gclock == 1) {
-        if (ssd->gclock_pointer->is_available && ssd->gclock_pointer->end_time <= ssd->current_time) {
-            ssd->gclock_pointer->is_available=0;
-            ssd->current_time+=RAID_SSD_LATENCY_NS*2;
-            ssd->gclock_pointer->begin_time=ssd->current_time;
-            ssd->gclock_pointer->holder_id=ssd->diskid;
+        if (ssd->gclock_pointer->is_available == 1 && ssd->gclock_pointer->end_time <= ssd->current_time) {
+            ssd->current_time+=RAID_SSD_LATENCY_NS*4;
+            ssd->gclock_pointer->is_available = 0;
+            ssd->gclock_pointer->begin_time = ssd->current_time;
+            ssd->gclock_pointer->holder_id = ssd->diskid;
         } else {
             return FAILURE;
         }
