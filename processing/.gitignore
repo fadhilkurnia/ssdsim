@@ -5,3 +5,9 @@
 !cdf.plt
 !gc_graph
 !gc_collision
+!fb_raid.py
+!gc_raid.py
+!cdf_single.py
+!de_time.py
+!gc_time.py
+!mp_time.py
