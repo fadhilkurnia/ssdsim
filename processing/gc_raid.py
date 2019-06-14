@@ -33,7 +33,7 @@ def main(argv):
     plt.xlabel('waktu (ms)')
     plt.ylabel('disk-id')
     plt.yticks(range(ndisk))
-    plt.xlim(1450000, 1500000)
+    plt.xlim(5000000, 5010000)
     plt.show()
 
 if __name__ == "__main__":

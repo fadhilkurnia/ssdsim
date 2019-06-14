@@ -3,3 +3,8 @@
 !TPCC10K.trace
 !MSNFS100M.trace
 !DTRS100M.trace
+!wp_tpcc100k.trace
+!tracefile.py
+!warmup.py
+!trace-concater.py
+!tracefile-intensive.py
