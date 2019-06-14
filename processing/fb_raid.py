@@ -13,9 +13,8 @@ def main(argv):
         ndisk = ndisk + 1
 
     # prepare graph
-    # fig, axar = plt.subplots(nrows=int(ndisk/2), ncols=int(ndisk/2))
-    # fig.suptitle('Free Page & Free Block on GCSync RAID5 (tw=100ms)')
-    # fig.subplots_adjust(wspace=0.4, hspace=0.4)
+    fig = plt.figure()
+    graph = fig.add_axes((0.14, 0.21, 0.8, 0.7))
 
     for diskid, ssd_gc_log in enumerate(open(raid_log)):
         data_block = []
@@ -68,20 +67,21 @@ def main(argv):
                 continue
 
         # plot graph for diskid
-        plt.plot(data_block, label='fr_block disk'+str(diskid))
+        graph.plot(data_block, label='fr_block disk'+str(diskid))
         # plt.plot(data_block_ne, label='fr_block_ne disk'+str(diskid))
-        plt.plot(data_page, label='fr_pg disk'+str(diskid))
+        # plt.plot(data_page, label='fr_pg disk'+str(diskid))
         # plt.plot(data_page_ne, label='fr_pg_ne disk'+str(diskid))
 
-    plt.grid()
-    plt.legend()
+    graph.grid()
+    graph.legend()
 
     # drawung the graph
     # plt.plot(data)
-    plt.title("Free Page & Free Block on GCSync RAID5 (tw=100ms)")
-    plt.ylim(0,40)
-    plt.ylabel("percentage (%)")
-    plt.xlabel("time (s)")
+    graph.set_title("Percentage of Free Block on RAID5 TPCC normal simulation")
+    graph.set_ylim(0,3)
+    graph.set_ylabel("percentage (%)")
+    graph.set_xlabel("time (s)")
+    fig.text(.5, .05, "Graph 3. Percentage of free-block over time in RAID5 vanilla TPCC simulation", ha='center')
     plt.show()
 
     return

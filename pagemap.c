@@ -1253,7 +1253,7 @@ int delete_gc_node(struct ssd_info *ssd, unsigned int channel,struct gc_operatio
 
     if (end_time != start_time) {
         printf("gc-disk-%d: %d \t %d \t %d \t %d \t%6.2f %8u %16lld %16lld %16lld\n", ssd->diskid, channel, gc_node->chip, gc_node->die, gc_node->plane, free_page_percent, moved_page, start_time, end_time, end_time-start_time);
-        fprintf(ssd->outfile_gc, "%d \t %d \t %d \t %d \t%6.2f %8u %16lld %16lld %16lld | %lld %.3f %.3f %.3f %.3f\n", channel, gc_node->chip, gc_node->die, gc_node->plane, free_page_percent, moved_page, start_time, end_time, end_time-start_time, ssd->current_time, get_crt_free_block_prct(ssd), get_crt_free_page_prct(ssd), get_crt_nonempty_free_page_prct(ssd), get_crt_nonempty_free_block_prct(ssd));
+        fprintf(ssd->outfile_gc, "%d \t %d \t %d \t %d \t%6.2f %8u %16lld %16lld %16lld | %lld %.3f %.3f %.3f %.3f | %lu\n", channel, gc_node->chip, gc_node->die, gc_node->plane, free_page_percent, moved_page, start_time, end_time, end_time-start_time, ssd->current_time, get_crt_free_block_prct(ssd), get_crt_free_page_prct(ssd), get_crt_nonempty_free_page_prct(ssd), get_crt_nonempty_free_block_prct(ssd), ssd->direct_erase_count);
         fflush(ssd->outfile_gc);
         ssd->num_gc++;
         if (ssd->gclock_pointer!=NULL && ssd->gclock_pointer->is_available == 0) {
