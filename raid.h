@@ -18,7 +18,7 @@
 #define R_SR_COMPLETE 3
 // #define DEBUGRAID
 
-#define RAID_SSD_LATENCY_NS 0 // 100us
+#define RAID_SSD_LATENCY_NS 300000 // 300us
 #define RAID5_PARITY_CALC_TIME_NS 80000 // 80us
 #define WRITE_RAID 3
 
@@ -75,6 +75,7 @@ struct gclock_raid_info {
     int64_t end_time;
     int is_available;
     int holder_id;
+    int gc_count;
 };
 
 // Request in RAID level

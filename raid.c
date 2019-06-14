@@ -49,6 +49,7 @@ struct raid_info* initialize_raid(struct raid_info* raid, struct user_args* uarg
         alloc_assert(raid->gclock, "gclock_info");
         memset(raid->gclock,0,sizeof(struct ssd_info));
         raid->gclock->is_available = 1;
+        raid->gclock->gc_count = 0;
         raid->gclock->holder_id = -1;
     }
 
@@ -65,6 +66,7 @@ struct raid_info* initialize_raid(struct raid_info* raid, struct user_args* uarg
         raid->connected_ssd[i] = make_aged(raid->connected_ssd[i]);
         raid->connected_ssd[i] = pre_process_page(raid->connected_ssd[i]);
         raid->connected_ssd[i]->tracefile = NULL;
+        raid->connected_ssd[i]->diskid = i;
 
         if (uargs->is_gclock) {
             raid->connected_ssd[i]->gclock_pointer = raid->gclock;
@@ -484,7 +486,7 @@ int raid_ssd_get_requests(int disk_id, struct ssd_info *ssd, struct raid_info *r
         rreq = rreq->next_node;
     }
 
-    nearest_event_time=find_nearest_event(ssd);
+    nearest_event_time = raid_find_nearest_event(raid);
 
     // no request for this disk
     if (rsreq == NULL || !is_found) {
@@ -871,8 +873,8 @@ void raid_print_req_queue(struct raid_info* raid) {
 }
 
 struct raid_info* simulate_raid0(struct raid_info* raid) {
-    int req_device_id, req_lsn, req_size, req_operation, flag, err, is_accept_req, interface_flag;
-    int64_t req_incoming_time, nearest_event_time;
+    int req_device_id, req_size, req_operation, flag, err, is_accept_req, interface_flag;
+    int64_t req_incoming_time, nearest_event_time, req_lsn;
     struct ssd_info *ssd;
     char buffer[200];
     long filepoint;
@@ -891,16 +893,16 @@ struct raid_info* simulate_raid0(struct raid_info* raid) {
             // Read a request from tracefile
             filepoint = ftell(raid->tracefile);
             fgets (buffer, 200, raid->tracefile);
-            sscanf (buffer,"%lld %d %d %d %d", &req_incoming_time, &req_device_id, &req_lsn, &req_size, &req_operation);
+            sscanf (buffer,"%lld %d %lld %d %d", &req_incoming_time, &req_device_id, &req_lsn, &req_size, &req_operation);
             is_accept_req = 1;
 
             // Validating incoming request
             if (req_device_id < 0 || req_lsn < 0 || req_size < 0 || !(req_operation == 0 || req_operation == 1)) {
-                printf("Error! wrong io request from tracefile (%lld %d %d %d %d)\n", req_incoming_time, req_device_id, req_lsn, req_size, req_operation);
+                printf("Error! wrong io request from tracefile (%lld %d %lld %d %d)\n", req_incoming_time, req_device_id, req_lsn, req_size, req_operation);
                 exit(1);
             }
             if (req_incoming_time < 0) {
-                printf("Error! wrong incoming time! (%lld %d %d %d %d)\n", req_incoming_time, req_device_id, req_lsn, req_size, req_operation);
+                printf("Error! wrong incoming time! (%lld %d %lld %d %d)\n", req_incoming_time, req_device_id, req_lsn, req_size, req_operation);
                 exit(1);
             }
             req_lsn = req_lsn%raid->max_lsn;
@@ -948,8 +950,8 @@ struct raid_info* simulate_raid0(struct raid_info* raid) {
 }
 
 struct raid_info* simulate_raid5(struct raid_info* raid) {
-    int req_device_id, req_lsn, req_size, req_operation, flag, err, is_accept_req, interface_flag;
-    int64_t req_incoming_time, nearest_event_time;
+    int req_device_id, req_size, req_operation, flag, err, is_accept_req, interface_flag;
+    int64_t req_incoming_time, nearest_event_time, req_lsn;
     struct ssd_info *ssd;
     char buffer[200];
     long filepoint;
@@ -968,16 +970,16 @@ struct raid_info* simulate_raid5(struct raid_info* raid) {
             // Read a request from tracefile
             filepoint = ftell(raid->tracefile);
             fgets (buffer, 200, raid->tracefile);
-            sscanf (buffer,"%lld %d %d %d %d", &req_incoming_time, &req_device_id, &req_lsn, &req_size, &req_operation);
+            sscanf (buffer,"%lld %d %lld %d %d", &req_incoming_time, &req_device_id, &req_lsn, &req_size, &req_operation);
             is_accept_req = 1;
 
             // Validating incoming request
             if (req_device_id < 0 || req_lsn < 0 || req_size < 0 || !(req_operation == 0 || req_operation == 1)) {
-                printf("Error! wrong io request from tracefile (%lld %d %d %d %d)\n", req_incoming_time, req_device_id, req_lsn, req_size, req_operation);
+                printf("Error! wrong io request from tracefile (%lld %d %lld %d %d)\n", req_incoming_time, req_device_id, req_lsn, req_size, req_operation);
                 exit(1);
             }
             if (req_incoming_time < 0) {
-                printf("Error! wrong incoming time! (%lld %d %d %d %d)\n", req_incoming_time, req_device_id, req_lsn, req_size, req_operation);
+                printf("Error! wrong incoming time! (%lld %d %lld %d %d)\n", req_incoming_time, req_device_id, req_lsn, req_size, req_operation);
                 exit(1);
             }
             req_lsn = req_lsn%raid->max_lsn;

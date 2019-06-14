@@ -1253,7 +1253,7 @@ int delete_gc_node(struct ssd_info *ssd, unsigned int channel,struct gc_operatio
 
     if (end_time != start_time) {
         printf("gc-disk-%d: %d \t %d \t %d \t %d \t%6.2f %8u %16lld %16lld %16lld\n", ssd->diskid, channel, gc_node->chip, gc_node->die, gc_node->plane, free_page_percent, moved_page, start_time, end_time, end_time-start_time);
-        fprintf(ssd->outfile_gc, "%d \t %d \t %d \t %d \t%6.2f %8u %16lld %16lld %16lld\n", channel, gc_node->chip, gc_node->die, gc_node->plane, free_page_percent, moved_page, start_time, end_time, end_time-start_time);
+        fprintf(ssd->outfile_gc, "%d \t %d \t %d \t %d \t%6.2f %8u %16lld %16lld %16lld | %lld %.3f %.3f %.3f %.3f | %lu\n", channel, gc_node->chip, gc_node->die, gc_node->plane, free_page_percent, moved_page, start_time, end_time, end_time-start_time, ssd->current_time, get_crt_free_block_prct(ssd), get_crt_free_page_prct(ssd), get_crt_nonempty_free_page_prct(ssd), get_crt_nonempty_free_block_prct(ssd), ssd->direct_erase_count);
         fflush(ssd->outfile_gc);
         ssd->num_gc++;
         if (ssd->gclock_pointer!=NULL && ssd->gclock_pointer->is_available == 0) {
@@ -1283,7 +1283,7 @@ Status gc_for_channel(struct ssd_info *ssd, unsigned int channel)
     unsigned int current_state=0, next_state=0;
     long long next_state_predict_time=0;
     struct gc_operation *gc_node=NULL,*gc_p=NULL;
-    int64_t temp_int64;
+    int64_t temp_int64, upper_tw_limit;
 
     /*******************************************************************************************
      *查找每一个gc_node，获取gc_node所在的chip的当前状态，下个状态，下个状态的预计时间
@@ -1338,8 +1338,9 @@ Status gc_for_channel(struct ssd_info *ssd, unsigned int channel)
     // check whether gcsync active or not. If active check whether 
     // GC can be started or not
     if (ssd->is_gcsync == 1 && ssd->gc_time_window != 0 && ssd->ndisk != 0) {
-        temp_int64 = ssd->current_time / ssd->gc_time_window;
-        if (temp_int64 % ssd->ndisk != ssd->diskid) {
+        temp_int64 = ssd->current_time / (ssd->gc_time_window + GCSSYNC_BUFFER_TIME);
+        upper_tw_limit = temp_int64 * (ssd->gc_time_window + GCSSYNC_BUFFER_TIME) + ssd->gc_time_window;
+        if (temp_int64 % ssd->ndisk != ssd->diskid || ssd->current_time > upper_tw_limit) {
             // Its not this disk turn to do GC
             return FAILURE;
         }
@@ -1348,11 +1349,11 @@ Status gc_for_channel(struct ssd_info *ssd, unsigned int channel)
     // check whether gclock active or not. If active check whether 
     // GC can be started or not
     if (ssd->is_gclock == 1) {
-        if (ssd->gclock_pointer->is_available && ssd->gclock_pointer->end_time <= ssd->current_time) {
-            ssd->gclock_pointer->is_available=0;
-            ssd->current_time+=RAID_SSD_LATENCY_NS*2;
-            ssd->gclock_pointer->begin_time=ssd->current_time;
-            ssd->gclock_pointer->holder_id=ssd->diskid;
+        if (ssd->gclock_pointer->is_available == 1 && ssd->gclock_pointer->end_time <= ssd->current_time) {
+            ssd->current_time+=RAID_SSD_LATENCY_NS*4;
+            ssd->gclock_pointer->is_available = 0;
+            ssd->gclock_pointer->begin_time = ssd->current_time;
+            ssd->gclock_pointer->holder_id = ssd->diskid;
         } else {
             return FAILURE;
         }

@@ -47,6 +47,10 @@ struct ssd_info *parse_args(struct ssd_info *, int, char *[]);
 void close_file(struct ssd_info *);
 
 void get_current_time(char *current_time);
+float get_crt_free_page_prct(struct ssd_info* );
+float get_crt_free_block_prct(struct ssd_info* );
+float get_crt_nonempty_free_page_prct(struct ssd_info* );
+float get_crt_nonempty_free_block_prct(struct ssd_info* );
 
 /********************************************
 * Function to display info and help
