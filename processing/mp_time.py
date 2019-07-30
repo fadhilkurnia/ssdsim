@@ -138,46 +138,31 @@ def single_mpgraph(gclogfilename, offset):
     crt_second = 0
     num_mvdpg = 0
     num_gc = 0
+
+    x = []
+    y = []
+
     for line in open(gclogfilename):
         xtime = float(line.split()[6])/1000000000.0
         mvdpage = int(line.split()[5])
-        
-        if int(line.split()[6]) > offset:
-            num_mvdpg = num_mvdpg + mvdpage
-            num_gc = num_gc + 1
 
-        # handle first data
-        if len(data_mvdpage) == 0:
-            for _ in range(0, int(xtime)):
-                data_mvdpage.append(0)
-            data_mvdpage.append(mvdpage)
-            crt_second = int(xtime)
-            continue
+        x.append(xtime)
+        y.append(mvdpage)
 
-        # accumulate data if still in the same second
-        if int(xtime) == crt_second:
-            data_mvdpage[crt_second] = data_mvdpage[crt_second] + mvdpage
-            continue
-
-        # jump to the new second
-        if int(xtime) > crt_second:
-            for _ in range(crt_second+1, int(xtime)):
-                data_mvdpage.append(0)
-            data_mvdpage.append(mvdpage)
-            crt_second = int(xtime)
+        num_mvdpg = num_mvdpg + mvdpage
+        num_gc = num_gc + 1
     
-
     # print average moved-page per GC
     print("Avg. moved page per GC: " + str(float(num_mvdpg)/float(num_gc)))
     
     # drawing the graph
-    graph.plot(data_mvdpage, label='#mvd-page/s')
+    graph.plot(x, y, label='#mvd-page')
     graph.grid()
     graph.legend()
-    graph.set_title("Number of moved page on GC process over time from \nTPCC normal simulation")
+    graph.set_title("Number of moved page on GC process over time\nusing TPCC workload, concatenated 5 times, gc_threshold=0.25")
     graph.set_ylabel("# moved-page")
     graph.set_xlabel("time (s)")
-    fig.text(.5, .05, "Graph 3. Number of moved-page/s over time from a single SSD TPCC simulation", ha='center')
+    fig.text(.5, .05, "Graph 6. Number of moved-page over time from a single SSD\n Avg. moved page per GC: 50.39 (19.68%)", ha='center')
     plt.show()
 
     return

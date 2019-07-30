@@ -40,6 +40,9 @@ int64_t find_nearest_event(struct ssd_info *);
 void free_all_node(struct ssd_info *);
 struct ssd_info *make_aged(struct ssd_info *);
 struct ssd_info *no_buffer_distribute(struct ssd_info *);
+struct ssd_info *warmup(struct ssd_info *);
+struct ssd_info *try_exec_gc(struct ssd_info *);
+void print_gc_node(struct ssd_info* ssd);
 
 int parse_user_args(int, char *[], struct user_args *);
 struct ssd_info *initialize_ssd(struct ssd_info*, struct user_args *);
@@ -61,3 +64,4 @@ void display_title();
 void display_help();
 void display_simulation_intro(struct ssd_info *);
 void display_freepage(struct ssd_info *);
+void display_state(struct ssd_info *);

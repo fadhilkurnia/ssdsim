@@ -24,7 +24,7 @@ def main(argv):
     
     for line in lines:
         linetoken = line.strip().split()
-        timestamp = int(int(linetoken[0]) * intnum)
+        timestamp = int(int(linetoken[0]) / intnum)
         diskid = linetoken[1]
         lsn = linetoken[2]
         size = linetoken[3]

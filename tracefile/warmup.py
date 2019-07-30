@@ -18,7 +18,7 @@ outtrace = open(args.outtrace, 'w')
 # create full 128KB write workload throughout all the LBA
 print("> preparing full 128KB write workload")
 write_size_sector = int(128*1024/args.sector)
-ia_time =  10000000 #10ms
+ia_time =  50000000 #50ms
 lba = 0
 time = 0
 while lba < args.maxlsn:
@@ -27,40 +27,51 @@ while lba < args.maxlsn:
     time = time + ia_time
 print("> full 128KB write workload is prepared, 0-" + str(int(time/1000000000)) + " second")
 
-# create random 4KB write on each block, 4KB is 8 sector 
+# create random 4KB write on each block, 4KB is 8 sectors or 1 page
 print("> preparing random 4KB write workload")
-write_size_sector = int(4*1024/args.sector)
-divider = args.bs/8
-lsn_lbound = 0
-time = time + 1000000000 # add 1 secomd
-ia_time =  100000000 #100ms
-while lsn_lbound + args.bs < args.maxlsn:
-    lba = int((random.randint(0,7) * divider) + lsn_lbound)
-    time = time + ia_time
-    outtrace.write(str(time) + ' 0 ' + str(lba) + ' ' + str(write_size_sector) + ' 0\n')
-    lsn_lbound = lsn_lbound + args.bs * 4
+# 4KB = 8 sectors = 1 page
+# def is_align_page(lsn):
+#     return lsn%8==0
+# time = time + 1000000000 # add 1 second
+# ia_time =  100000000 # 100ms
+# for x in range(1000):
+#     lsn = random.randint(0, args.maxlsn+1)
+#     while not is_align_page(lsn):
+#         lsn = random.randint(0, args.maxlsn+1)
+#     outtrace.write(str(time) + ' 0 ' + str(lba) + ' ' + str(write_size_sector) + ' 0\n')
+
+# write_size_sector = int(4*1024/args.sector) # 8 sectors
+# divider = args.bs/write_size_sector         # 2048/8 = 256 ws
+# lsn_lbound = 0
+# time = time + 1000000000                    # add 1 second
+# ia_time =  100000000                        # 100ms
+# while lsn_lbound + args.bs < args.maxlsn:
+#     # for x in range(int(divider*0.25)): # try to make write request to 25% of the block
+#     lba = int((random.randint(0,divider) * write_size_sector) + lsn_lbound)
+#     time = time + ia_time
+#     outtrace.write(str(time) + ' 0 ' + str(lba) + ' ' + str(write_size_sector) + ' 0\n')
+#     lsn_lbound = lsn_lbound + args.bs
 print("> random 4KB write workload is prepared, till " + str(int(time/1000000000)) + " second")
 
-print("> preparing random 4KB read workload")
-lsn_lbound = 0
-ia_time =  10000000 #10ms
-while lsn_lbound + args.bs < args.maxlsn:
-    lba = int((random.randint(0,7) * divider) + lsn_lbound)
-    time = time + ia_time
-    outtrace.write(str(time) + ' 0 ' + str(lba) + ' ' + str(write_size_sector) + ' 1\n')
-    lsn_lbound = lsn_lbound + args.bs
-print("> random 4KB read workload is prepared, till " + str(int(time)) + " ns")
-
+# print("> preparing 4KB read to first page in all block")
+# lsn_lbound = 0
+# ia_time =  10000000 #10ms
+# while lsn_lbound + args.bs < args.maxlsn:
+#     lba = lsn_lbound
+#     time = time + ia_time
+#     outtrace.write(str(time) + ' 0 ' + str(lba) + ' ' + str(write_size_sector) + ' 1\n')
+#     lsn_lbound = lsn_lbound + args.bs
+# print("> random 4KB read workload is prepared, till " + str(int(time)) + " ns")
 
 # concat with given tracefile
-print("> concatenating the warmup workload with " + args.trace)
-trace = open(args.trace, 'r')
-init_time = time + 1000000000 # add 1 secomd
-for line in trace:
-    time = int(line.split()[0]) + init_time
-    lba = line.split()[2]
-    size = line.split()[3]
-    ope = line.split()[4]
-    outtrace.write(str(time) + ' 0 ' + str(lba) + ' ' + str(size) + ' ' + str(ope) + '\n')
-print("> finish concatenating, end timestamp is "+ str(int(time/1000000000)) + " second")
+# print("> concatenating the warmup workload with " + args.trace)
+# trace = open(args.trace, 'r')
+# init_time = time + 1000000000 # add 1 second
+# for line in trace:
+#     time = int(line.split()[0]) + init_time
+#     lba = line.split()[2]
+#     size = line.split()[3]
+#     ope = line.split()[4]
+#     outtrace.write(str(time) + ' 0 ' + str(lba) + ' ' + str(size) + ' ' + str(ope) + '\n')
+# print("> finish concatenating, end timestamp is "+ str(int(time/1000000000)) + " second")
 print("> the new workload (" + args.outtrace + ") is ready!")

@@ -45,6 +45,11 @@ void simulate_ssd(struct user_args* uargs) {
     memset(ssd,0, sizeof(struct ssd_info));
 
     ssd=initialize_ssd(ssd, uargs);
+    // activate syncgc
+    // ssd->is_gcsync = 1;
+    // ssd->ndisk = 4;
+    // ssd->diskid = 0;
+    // ssd->gc_time_window = 100 * 1000000;
     printf("finish initialize ssd\n");
 
     ssd=initiation(ssd);
@@ -57,6 +62,7 @@ void simulate_ssd(struct user_args* uargs) {
     display_simulation_intro(ssd);
     ssd=simulate(ssd);
 
+    // display_state(ssd);
     statistic_output(ssd);
     close_file(ssd);
 
@@ -188,7 +194,7 @@ int parse_user_args(int argc, char *argv[], struct user_args* uargs) {
 
 // initialize_ssd function initializes ssd struct based on user arguments and also default value.
 // the most important arguments to be initialized is the tracefile and also
-// ssd parameter config file. This function also prepare all log file to store informatin about single ssd simulation
+// ssd parameter config file. This function also prepare all log file to store information about single ssd simulation
 struct ssd_info *initialize_ssd(struct ssd_info* ssd, struct user_args* uargs) {
     int i;
     char *opt;
@@ -311,6 +317,8 @@ struct ssd_info *simulate(struct ssd_info *ssd)
         // FTL+FCL+Flash layer
         process(ssd);
         trace_output(ssd);
+
+        // reach end of tracefile, all request already processed
         if(flag == 0 && ssd->request_queue == NULL)
             flag = 100;
     }
@@ -353,7 +361,7 @@ int get_requests(struct ssd_info *ssd)
         fgets(buffer, 200, ssd->tracefile);
         sscanf(buffer,"%lld %d %d %d %d",&time_t,&device,&lsn,&size,&ope);
     
-    // Else continue to process queue until empty
+    // If EOF, continue to process the request queue until empty
     } else {
         nearest_event_time=find_nearest_event(ssd);
         ssd->current_time=nearest_event_time;
@@ -401,7 +409,7 @@ int get_requests(struct ssd_info *ssd)
                 ssd->current_time=nearest_event_time;
             return -1;
         }
-        else
+        else // nearest_event_time >= time_t
         {
             if (ssd->request_queue_length>=ssd->parameter->queue_length)
             {
@@ -459,13 +467,15 @@ int get_requests(struct ssd_info *ssd)
         ssd->request_queue_length++;
     }
 
-    if (request1->operation==1)             //计算平均请求大小 1为读 0为写
+    if (request1->operation==READ)             //计算平均请求大小 1为读 0为写
     {
         ssd->ave_read_size=(ssd->ave_read_size*ssd->read_request_count+request1->size)/(ssd->read_request_count+1);
+        ssd->read_request_size+=request1->size;
     } 
     else
     {
         ssd->ave_write_size=(ssd->ave_write_size*ssd->write_request_count+request1->size)/(ssd->write_request_count+1);
+        ssd->write_request_size+=request1->size;
     }
 
 
@@ -1121,6 +1131,8 @@ void statistic_output(struct ssd_info *ssd)
     fprintf(ssd->outputfile,"buffer write hits: %13lu\n",ssd->dram->buffer->write_hit);
     fprintf(ssd->outputfile,"buffer write miss: %13lu\n",ssd->dram->buffer->write_miss_hit);
     fprintf(ssd->outputfile,"erase: %13u\n",erase);
+    fprintf(ssd->outputfile,"write amplification: %.2f\n",(double)ssd->program_count/(double)ssd->write_request_count);
+    fprintf(ssd->outputfile,"read amplification: %.2f\n",(double)ssd->read_count/(double)ssd->read_request_count);
     fflush(ssd->outputfile);
 
 
@@ -1162,6 +1174,16 @@ void statistic_output(struct ssd_info *ssd)
     fprintf(ssd->statisticfile,"buffer write hits: %13lu\n",ssd->dram->buffer->write_hit);
     fprintf(ssd->statisticfile,"buffer write miss: %13lu\n",ssd->dram->buffer->write_miss_hit);
     fprintf(ssd->statisticfile,"erase: %13u\n",erase);
+    fprintf(ssd->statisticfile,"write sub request count: %13u\n",ssd->write_subreq_count);
+    fprintf(ssd->statisticfile,"read subr request count: %13u\n",ssd->read_subreq_count);
+    if(ssd->write_request_count != 0)
+        fprintf(ssd->statisticfile,"write amplification: %.2f\n",(double)ssd->program_count/(double)ssd->write_subreq_count);
+    if(ssd->read_request_count != 0)
+        fprintf(ssd->statisticfile,"read amplification: %.2f\n",(double)ssd->read_count/(double)ssd->read_subreq_count);
+    fprintf(ssd->statisticfile, "write amplification (size): %.2f\n", (double)ssd->in_program_size/(double)ssd->write_request_size);
+    fprintf(ssd->statisticfile, "read amplification (size): %.2f\n", (double)ssd->in_read_size/(double)ssd->read_request_size);
+    fprintf(ssd->statisticfile, "avg. gc page move: %.2f (%.2f%%)\n", (double)ssd->gc_move_page/(double)ssd->num_gc, (100*((double)ssd->gc_move_page/(double)ssd->num_gc)/ssd->parameter->page_block));
+    fprintf(ssd->statisticfile, "gc time window: %lld\n", ssd->gc_time_window);
     fflush(ssd->statisticfile);
 
 }
@@ -1169,6 +1191,7 @@ void statistic_output(struct ssd_info *ssd)
 
 /***********************************************************************************
  *根据每一页的状态计算出每一需要处理的子页的数目，也就是一个子请求需要处理的子页的页数
+ *Calculate the number of subpages that need to be processed according to the state of each page, that is, the number of pages of subpages that a subrequest needs to process.
  ************************************************************************************/
 unsigned int size(unsigned int stored)
 {
@@ -1229,6 +1252,11 @@ unsigned int transfer_size(struct ssd_info *ssd,int need_distribute,unsigned int
  *-2^63 ( -9,223,372,036,854,775,808)到2^63-1(+9,223,372,036,854,775,807 )之间的整数。存储空间占 8 字节。
  *channel,die是事件向前推进的关键因素，三种情况可以使事件继续向前推进，channel，die分别回到idle状态，die中的
  *读数据准备好了
+ *Find the next state time of the earliest arrival of all sub-requests, first look at the next state time of the request, if the next state time of the request is less than or equal to the current time,
+ *Indicates that the request is blocked. You need to check the channel or the next status time of the corresponding die. Int64 is a signed 64-bit integer data type, and the value type indicates that the value is between
+ *An integer between -2^63 (-9,223,372,036,854,775,808) to 2^63-1 (+9,223,372,036,854,775,807). The storage space is 8 bytes.
+ *Channel, die is the key factor for the event to advance. Three situations can make the event continue to move forward. The channel and die return to the idle state respectively.
+ *Read the data is ready
  ***********************************************************************************************************/
 int64_t find_nearest_event(struct ssd_info *ssd) 
 {
@@ -1374,6 +1402,43 @@ struct ssd_info *make_aged(struct ssd_info *ssd)
     return ssd;
 }
 
+struct ssd_info *warmup(struct ssd_info *ssd) {
+    int channel, chip, die, plane, block, i, valid_state;
+    float threshold = ssd->parameter->aged_ratio;
+    int64_t lpn=0, crt_lpn=0, pg_count=0;
+    int64_t pg_threshold=ssd->parameter->page_block*ssd->parameter->block_plane*ssd->parameter->plane_die*ssd->parameter->die_chip*ssd->parameter->chip_num * (1-ssd->parameter->overprovide);
+
+    for (channel=0; channel<ssd->parameter->channel_number; channel++)
+        for (chip=0; chip<ssd->channel_head[channel].chip; chip++)
+            for (die=0; die<ssd->parameter->die_chip; die++)
+                for (plane=0; plane<ssd->parameter->plane_die; plane++)
+                    for (block=0; block<ssd->parameter->block_plane; block++)
+                        for (i=0; i<ssd->parameter->page_block && pg_count < pg_threshold; i++) {
+                            pg_count++;
+
+                            // fill with valid page
+                            if (i < ssd->parameter->page_block*threshold) {
+                                valid_state = 0xffffffff;
+                                lpn = crt_lpn++;
+                                ssd->dram->map->map_entry[lpn].pn=find_ppn(ssd, channel, chip, die, plane, block, i);
+                                ssd->dram->map->map_entry[lpn].state=valid_state;
+
+                            } else { // fill with invalid page
+                                valid_state = 0x0;
+                                lpn = 0;
+                                ssd->channel_head[channel].chip_head[chip].die_head[die].plane_head[plane].blk_head[block].invalid_page_num++;
+                            }
+
+                            ssd->channel_head[channel].chip_head[chip].die_head[die].plane_head[plane].blk_head[block].page_head[i].valid_state=valid_state;
+                            ssd->channel_head[channel].chip_head[chip].die_head[die].plane_head[plane].blk_head[block].page_head[i].free_state=0x0;
+                            ssd->channel_head[channel].chip_head[chip].die_head[die].plane_head[plane].blk_head[block].page_head[i].lpn=lpn;
+                            ssd->channel_head[channel].chip_head[chip].die_head[die].plane_head[plane].blk_head[block].free_page_num--;
+                            ssd->channel_head[channel].chip_head[chip].die_head[die].plane_head[plane].blk_head[block].last_write_page++;
+                            ssd->channel_head[channel].chip_head[chip].die_head[die].plane_head[plane].free_page--;
+
+                        }
+    return ssd;
+}
 
 /*********************************************************************************************
  *no_buffer_distribute()函数是处理当ssd没有dram的时候，
@@ -1505,4 +1570,95 @@ void get_current_time(char *current_time) {
     tm_info = localtime(&timer);
 
     strftime(current_time, 26, "%Y%m%d_%H%M%S", tm_info);
+}
+
+void display_state(struct ssd_info *ssd) {
+    int channel, chip, die, plane, block;
+    unsigned int page_block = ssd->parameter->page_block;
+    unsigned int valid_pg, invalid_pg, free_pg;
+    int64_t total_page=0, total_valid_pg=0, total_invalid_pg=0, total_free_pg=0;
+    int64_t total_bk=0, total_full_vbk=0, total_empty_bk=0;
+    FILE *fp = NULL;
+
+    // Preparing to write to external file
+    fp = fopen("state.dat","w");
+
+    printf("State of the SSD:\n");
+    for (channel=0; channel<ssd->parameter->channel_number; channel++)
+        for (chip=0; chip<ssd->channel_head[channel].chip; chip++) 
+            for (die=0; die<ssd->channel_head[channel].chip_head[chip].die_num; die++)
+                for (plane=0; plane<ssd->parameter->plane_die; plane++)
+                    for (block=0; block<ssd->parameter->block_plane; block++) {
+                        free_pg = ssd->channel_head[channel].chip_head[chip].die_head[die].plane_head[plane].blk_head[block].free_page_num;
+                        invalid_pg = ssd->channel_head[channel].chip_head[chip].die_head[die].plane_head[plane].blk_head[block].invalid_page_num;
+                        valid_pg = page_block-free_pg-invalid_pg;
+                        printf("cnl:%d chip:%d die:%d pln:%d blk:%d  frpg:%u ivpg:%u vpg:%u\n", channel, chip, die, plane, block, free_pg, invalid_pg, valid_pg);
+                        fprintf(fp, "%d %d %d %d %d | %u %u %u\n", channel, chip, die, plane, block, free_pg, invalid_pg, valid_pg);
+
+                        total_page += ssd->parameter->page_block;
+                        total_valid_pg += valid_pg;
+                        total_invalid_pg += invalid_pg;
+                        total_free_pg += free_pg;
+                        total_bk++;
+                        if (valid_pg==ssd->parameter->page_block) total_full_vbk++;
+                        if (free_pg==ssd->parameter->page_block) total_empty_bk++;
+                    }
+
+    printf("State of block and page in the SSD:\n");
+    printf("  total_block:%lld free_block:%lld(%.4f) full_block:%lld(%.4f)\n", total_bk, total_empty_bk, (float)total_empty_bk/(float)total_bk, total_full_vbk, (float)total_full_vbk/(float)total_bk);
+    printf("  total_page:%lld avg_free_page/block:%.4f avg_valid_page/block:%.4f avg_invalid_page/block:%.4f\n", total_page, ((float)total_free_pg/(float)total_bk), ((float)total_valid_pg/(float)total_bk), ((float)total_invalid_pg/(float)total_bk));
+    fclose(fp);
+}
+
+struct ssd_info *try_exec_gc(struct ssd_info *ssd) {
+    struct gc_operation* gc = NULL;
+    int channel=0, ssd_idle=1, channel_run_gc=0;
+    int64_t gc_start_time = 0;
+    
+    // try to run an early GC in every channel
+    for(channel=0; channel<ssd->parameter->channel_number; channel++) {
+        gc = ssd->channel_head[channel].gc_command;
+        channel_run_gc=0;
+
+        // choosing GC and evaluate channel state
+        while (gc!=NULL) {
+            if (gc->priority==GC_UNINTERRUPT) break;
+            gc = gc->next_node;
+        }
+        if ((ssd->parameter->allocation_scheme==1)||((ssd->parameter->allocation_scheme==0)&&(ssd->parameter->dynamic_allocation==1))) {
+            if (ssd->channel_head[channel].subs_r_head!=NULL || ssd->channel_head[channel].subs_w_head!=NULL) continue;
+        }
+        if (gc==NULL) continue;
+        if((ssd->channel_head[channel].current_state==CHANNEL_IDLE)||(ssd->channel_head[channel].next_state==CHANNEL_IDLE&&ssd->channel_head[channel].next_state_predict_time<=ssd->current_time)) {
+            printf(">>> %d %lld %lld %lld %lld | %d %d %lld %lld\n", channel, gc->x_init_time, gc->x_expected_start_time, ssd->current_time, find_nearest_event(ssd), ssd->channel_head[channel].current_state, ssd->channel_head[channel].next_state, ssd->channel_head[channel].current_time, ssd->channel_head[channel].next_state_predict_time);
+            channel_run_gc=1;
+        }
+        if (channel_run_gc==0) continue;
+
+        // Set gc start time
+        if (ssd->channel_head[channel].current_state==CHANNEL_IDLE) {
+            gc_start_time = ssd->channel_head[channel].current_time;
+        }
+        if (ssd->channel_head[channel].next_state==CHANNEL_IDLE&&ssd->channel_head[channel].next_state_predict_time<=ssd->current_time) {
+            gc_start_time = ssd->channel_head[channel].next_state_predict_time;
+        }
+
+        // run an early GC for this channel
+    }
+    printf("------\n");
+
+    return ssd;
+}
+
+void print_gc_node(struct ssd_info* ssd) {
+    struct gc_operation* gc = NULL;
+    int channel = 0;
+    for(channel=0; channel<ssd->parameter->channel_number; channel++) {
+        gc = ssd->channel_head[channel].gc_command;
+        while (gc!=NULL) {
+            printf("/////////// %d %d %d %d %lld %lld %d %lld %d %lld\n", channel, gc->chip, gc->die, gc->plane, gc->x_init_time, gc->x_expected_start_time, ssd->channel_head[channel].current_state, ssd->channel_head[channel].current_time, ssd->channel_head[channel].next_state, ssd->channel_head[channel].next_state_predict_time);
+            gc=gc->next_node;
+        }
+    }
+    
 }

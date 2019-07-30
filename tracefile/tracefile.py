@@ -21,7 +21,7 @@ for line in tracefile:
     nrequests = nrequests + 1
     req_time.append(incoming_time)
     if ope == "0":
-        req_size_r.append(size/2.0)
+        req_size_r.append(size/2.0) # convert sector to KB, 1 sector = 512 B
         nreadrequest = nreadrequest + 1
     else:
         req_size_w.append(size/2.0)
@@ -41,7 +41,11 @@ print("read (%) ", nreadrequest/nrequests*100.0 , "%")
 
 # creating io rate graph
 np_time = np.array(req_time)
-iorate,_ = np.histogram(np_time, bins=1000)
+min_scd_time = int(np_time[0]/1000000000)
+max_scd_time = int(np_time[nrequests-1]/1000000000.0)
+iorate,_ = np.histogram(np_time, bins=max_scd_time-min_scd_time+1)
 plt.plot(iorate)
-plt.ylim(top=3000)
+plt.ylabel("IOPS")
+plt.xlabel("time (s)")
+plt.ylim(top=500)
 plt.show()
