@@ -1,8 +1,15 @@
 *
 !.gitignore
 !TPCC10K.trace
+!TPCC10K_8x.trace
 !MSNFS100M.trace
 !DTRS100M.trace
+# !AzureStorage8x.trace
+# !AzureStorage.trace
+!LMBE.trace
+!LMBE8x.trace
+!MSNFS.trace
+!MSNFS8x.trace
 !wp_tpcc100k.trace
 !tracefile.py
 !warmup.py
