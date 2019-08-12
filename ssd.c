@@ -317,6 +317,7 @@ struct ssd_info *simulate(struct ssd_info *ssd)
         // FTL+FCL+Flash layer
         process(ssd);
         trace_output(ssd);
+        init_gc(ssd);
 
         // reach end of tracefile, all request already processed
         if(flag == 0 && ssd->request_queue == NULL)
@@ -1610,42 +1611,70 @@ void display_state(struct ssd_info *ssd) {
     fclose(fp);
 }
 
-struct ssd_info *try_exec_gc(struct ssd_info *ssd) {
-    struct gc_operation* gc = NULL;
-    int channel=0, ssd_idle=1, channel_run_gc=0;
+struct ssd_info *init_gc(struct ssd_info *ssd) {
+    struct gc_operation* gc_node = NULL;
+    unsigned int channel=0, chip=0, die=0, plane=0, is_gc_inited, free_page;
+    unsigned int threshold;
     int64_t gc_start_time = 0;
-    
-    // try to run an early GC in every channel
+
+    // Don't check when #free-page > threshold
+    threshold = ssd->parameter->page_block*ssd->parameter->block_plane*ssd->parameter->plane_die*ssd->parameter->die_chip*ssd->parameter->chip_num * (1-ssd->parameter->overprovide) * ssd->parameter->gc_hard_threshold;
+    free_page = 0;
     for(channel=0; channel<ssd->parameter->channel_number; channel++) {
-        gc = ssd->channel_head[channel].gc_command;
-        channel_run_gc=0;
-
-        // choosing GC and evaluate channel state
-        while (gc!=NULL) {
-            if (gc->priority==GC_UNINTERRUPT) break;
-            gc = gc->next_node;
+        for(chip=0; chip<ssd->channel_head[channel].chip; chip++) {
+            for(die=0; die<ssd->parameter->die_chip; die++) {
+                for(plane=0; plane<ssd->parameter->die_chip; plane++) {
+                    free_page += ssd->channel_head[channel].chip_head[chip].die_head[die].plane_head[plane].free_page;
+                }
+            }
         }
-        if ((ssd->parameter->allocation_scheme==1)||((ssd->parameter->allocation_scheme==0)&&(ssd->parameter->dynamic_allocation==1))) {
-            if (ssd->channel_head[channel].subs_r_head!=NULL || ssd->channel_head[channel].subs_w_head!=NULL) continue;
-        }
-        if (gc==NULL) continue;
-        if((ssd->channel_head[channel].current_state==CHANNEL_IDLE)||(ssd->channel_head[channel].next_state==CHANNEL_IDLE&&ssd->channel_head[channel].next_state_predict_time<=ssd->current_time)) {
-            printf(">>> %d %lld %lld %lld %lld | %d %d %lld %lld\n", channel, gc->x_init_time, gc->x_expected_start_time, ssd->current_time, find_nearest_event(ssd), ssd->channel_head[channel].current_state, ssd->channel_head[channel].next_state, ssd->channel_head[channel].current_time, ssd->channel_head[channel].next_state_predict_time);
-            channel_run_gc=1;
-        }
-        if (channel_run_gc==0) continue;
-
-        // Set gc start time
-        if (ssd->channel_head[channel].current_state==CHANNEL_IDLE) {
-            gc_start_time = ssd->channel_head[channel].current_time;
-        }
-        if (ssd->channel_head[channel].next_state==CHANNEL_IDLE&&ssd->channel_head[channel].next_state_predict_time<=ssd->current_time) {
-            gc_start_time = ssd->channel_head[channel].next_state_predict_time;
-        }
-
-        // run an early GC for this channel
     }
-    printf("------\n");
+    if (free_page > threshold) {
+        return ssd;
+    }
+    
+    // Check whether GC need to be run in each plane
+    for(channel=0; channel<ssd->parameter->channel_number; channel++) {
+        for(chip=0; chip<ssd->channel_head[channel].chip; chip++) {
+            for(die=0; die<ssd->parameter->die_chip; die++) {
+                for(plane=0; plane<ssd->parameter->die_chip; plane++) {
+                    if (ssd->channel_head[channel].chip_head[chip].die_head[die].plane_head[plane].free_page<(ssd->parameter->page_block*ssd->parameter->block_plane*ssd->parameter->gc_hard_threshold)) {
+                        // check whether gc process already initialized for this plane
+                        is_gc_inited=1;
+                        gc_node=ssd->channel_head[channel].gc_command;
+                        while(gc_node!=NULL) {
+                            if (gc_node->chip==chip && gc_node->die==die && gc_node->plane==plane) {
+                                is_gc_inited = 0;
+                                break;
+                            }
+                            gc_node=gc_node->next_node;
+                        }
+                        if(is_gc_inited) {
+                            gc_node=(struct gc_operation *)malloc(sizeof(struct gc_operation));
+                            alloc_assert(gc_node,"gc_node");
+                            memset(gc_node,0, sizeof(struct gc_operation));
+
+                            gc_node->next_node=NULL;
+                            gc_node->chip=chip;
+                            gc_node->die=die;
+                            gc_node->plane=plane;
+                            gc_node->block=0xffffffff;
+                            gc_node->page=0;
+                            gc_node->state=GC_WAIT;
+                            gc_node->priority=GC_UNINTERRUPT;
+                            gc_node->next_node=ssd->channel_head[channel].gc_command;
+                            gc_node->x_init_time = ssd->channel_head[channel].current_time;
+                            gc_node->x_free_percentage = (double) ssd->channel_head[channel].chip_head[chip].die_head[die].plane_head[plane].free_page / (double) (ssd->parameter->page_block*ssd->parameter->block_plane) * (double) 100;
+                            gc_node->x_moved_pages=0;
+
+                            ssd->channel_head[channel].gc_command=gc_node;
+                            ssd->gc_request++;
+                        }
+                    }
+                }
+            }
+        }
+    }
 
     return ssd;
 }

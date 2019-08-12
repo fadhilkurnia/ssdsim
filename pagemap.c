@@ -443,7 +443,7 @@ struct ssd_info *get_ppn(struct ssd_info *ssd,unsigned int channel,unsigned int 
     unsigned int block;
     unsigned int page,flag=0,flag1=0;
     unsigned int old_state=0,state=0,copy_subpage=0;
-    unsigned int is_in_tw=0, is_gc_inited=0;
+    unsigned int is_in_tw=0, is_gc_inited=1;
     struct local *location;
     struct direct_erase *direct_erase_node,*new_direct_erase;
     struct gc_operation *gc_node;
@@ -560,6 +560,7 @@ struct ssd_info *get_ppn(struct ssd_info *ssd,unsigned int channel,unsigned int 
         if (ssd->channel_head[channel].chip_head[chip].die_head[die].plane_head[plane].free_page<(ssd->parameter->page_block*ssd->parameter->block_plane*ssd->parameter->gc_hard_threshold))
         {
             // check whether gc process already initialized for this plane
+            is_gc_inited=1;
             gc_node=ssd->channel_head[channel].gc_command;
             while(gc_node!=NULL) {
                 if (gc_node->chip==chip && gc_node->die==die && gc_node->plane==plane) {
@@ -570,7 +571,7 @@ struct ssd_info *get_ppn(struct ssd_info *ssd,unsigned int channel,unsigned int 
             }
 
             // only initialized gc if it wasn't initialized previously
-            if (!is_gc_inited) {
+            if (is_gc_inited) {
                 gc_node=(struct gc_operation *)malloc(sizeof(struct gc_operation));
                 alloc_assert(gc_node,"gc_node");
                 memset(gc_node,0, sizeof(struct gc_operation));
@@ -587,11 +588,6 @@ struct ssd_info *get_ppn(struct ssd_info *ssd,unsigned int channel,unsigned int 
                 gc_node->x_init_time = ssd->channel_head[channel].current_time;
                 gc_node->x_free_percentage = (double) ssd->channel_head[channel].chip_head[chip].die_head[die].plane_head[plane].free_page / (double) (ssd->parameter->page_block*ssd->parameter->block_plane) * (double) 100;
                 gc_node->x_moved_pages=0;
-                // if (ssd->is_gcsync) {
-                //     n = ssd->channel_head[channel].current_time / ((ssd->diskid+1)*ssd->gc_time_window);
-                //     is_in_tw = ((ssd->channel_head[channel].current_time/ssd->gc_time_window)%ssd->ndisk == ssd->diskid) ? 1:0;
-                //     gc_node->x_expected_start_time = (is_in_tw) ? ssd->channel_head[channel].current_time : ((ssd->diskid+1)*ssd->gc_time_window)*n+(ssd->diskid*ssd->gc_time_window);
-                // }
 
                 ssd->channel_head[channel].gc_command=gc_node;
                 ssd->gc_request++;
@@ -1280,7 +1276,7 @@ int delete_gc_node(struct ssd_info *ssd, unsigned int channel,struct gc_operatio
     double free_page_percent = gc_node->x_free_percentage;
 
     if (moved_page != 0) {
-         printf("gc-disk-%u: %2d %2d %2d %2d %6.2f %4u %16lld %16lld %16lld %12lld\n", ssd->diskid, channel, gc_node->chip, gc_node->die, gc_node->plane, free_page_percent, moved_page, gc_node->x_init_time, start_time, end_time, end_time-start_time);
+        printf("gc-disk-%u: %2d %2d %2d %2d %6.2f %4u %16lld %16lld %16lld %12lld\n", ssd->diskid, channel, gc_node->chip, gc_node->die, gc_node->plane, free_page_percent, moved_page, gc_node->x_init_time, start_time, end_time, end_time-start_time);
         fprintf(ssd->outfile_gc, "%d \t %d \t %d \t %d \t%6.2f %8u %16lld %16lld %16lld | %lld %.3f %.3f %.3f %.3f | %lu\n", channel, gc_node->chip, gc_node->die, gc_node->plane, free_page_percent, moved_page, start_time, end_time, end_time-start_time, ssd->current_time, get_crt_free_block_prct(ssd), get_crt_free_page_prct(ssd), get_crt_nonempty_free_page_prct(ssd), get_crt_nonempty_free_block_prct(ssd), ssd->direct_erase_count);
         fflush(ssd->outfile_gc);
         ssd->num_gc++;
