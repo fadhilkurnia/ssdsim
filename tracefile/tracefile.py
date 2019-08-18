@@ -48,16 +48,21 @@ np_size_w = np.array(req_size_w)
 duration = end_time-start_time
 
 print("int-arrival time ", np.average(np_diff)/1000000.0, " ms")
-print("avg.read size ", np.average(np_size_r), " KB")
-print("avg.write size ", np.average(np_size_w), " KB")
+if nreadrequest > 0:
+    print("avg.read size ", np.average(np_size_r), " KB")
+if nwriterequest > 0:
+    print("avg.write size ", np.average(np_size_w), " KB")
 print("read (%) ", nreadrequest/nrequests*100.0 , "%")
-print("write (%) ", nwriterequest/nreadrequest*100.0, "%")
-print("read BW ", np.sum(np_size_r)/duration/1000, "MBPS")
-print("write BW ", np.sum(np_size_w)/duration/1000, "MBPS")
+print("write (%) ", nwriterequest/nrequests*100.0, "%")
+print("read size (MB) ", np.sum(np_size_r)/1000.0)
+print("write size (MB) ", np.sum(np_size_w)/1000.0)
+print("read BW ", np.sum(np_size_r)/duration/1000, "MB/s")
+print("write BW ", np.sum(np_size_w)/duration/1000, "MB/s")
 print("start time ", start_time)
-print("end time ", end_time)
+print("end time ", end_time, "s")
 print("duration ", duration, "s")
-print("IOPS ", nrequests/duration)
+print("read IOPS ", nreadrequest/duration)
+print("write IOPS ", nwriterequest/duration)
 
 # creating io rate graph
 np_time = np.array(req_time)
